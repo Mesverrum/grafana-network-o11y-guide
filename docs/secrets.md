@@ -31,7 +31,7 @@ auths:
     priv_protocol: AES
 ```
 
-The Cloud token (`GC_OTLP_KEY`) goes in `/etc/default/alloy` (or `/etc/sysconfig/alloy`), not in this file and not in Fleet.
+The Cloud token (`GC_OTLP_KEY`) goes in `/etc/default/alloy` (or `/etc/sysconfig/alloy`), not in this file and not in Fleet. How to copy URL / instance ID / token: [grafana-cloud-otlp.md](grafana-cloud-otlp.md).
 
 ## If your org already has a secret store
 

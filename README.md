@@ -34,7 +34,7 @@ If Alloy polls `10.1.1.5` as `core-01`, traps and flows from `10.1.1.5` get the 
 ## Prerequisites
 
 - A Linux host that can **ping and `snmpget`** the devices. If that fails from the host, Alloy will fail too.
-- A Grafana Cloud stack. In the Cloud UI: **Connections → OpenTelemetry**. Copy the endpoint URL, the numeric instance / account id, and a token starting with `glc_`.
+- A Grafana Cloud login and a **stack** you can open. How to copy the three push settings (URL, numeric instance ID, `glc_` token): **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**. You will not find these in a welcome email.
 - **Docker** on the machine that *builds* Alloy (the poller or a jump box). You copy the finished program onto the poller. You do not need to write Go.
 
 ## Quickstart
@@ -59,7 +59,7 @@ CUSTOM_ARGS="--stability.level=experimental"
 
 Without that line, Alloy will refuse the network pieces even after you replace the program.
 
-**2. Cloud credentials on the poller, not in Fleet.** Add to the same file (`/etc/default/alloy`):
+**2. Cloud credentials on the poller, not in Fleet.** Copy them from Grafana Cloud using [docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md) (grafana.com → your stack → **OpenTelemetry** → **Configure**). Add to the same file (`/etc/default/alloy`):
 
 ```
 GC_OTLP_URL=https://otlp-gateway-prod-<region>.grafana.net/otlp
@@ -132,6 +132,7 @@ docker compose up -d
 ## More detail
 
 - **[docs/glossary.md](docs/glossary.md)** — Alloy, Fleet, Explore, PromQL, …
+- **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)** — where to copy URL, instance ID, and token
 - **[docs/install-alloy.md](docs/install-alloy.md)** — replace the official program with the network build
 - **[docs/architecture.md](docs/architecture.md)** — discovery, poll intervals, naming
 - **[docs/fleet.md](docs/fleet.md)** — Fleet vs files on the poller

@@ -12,7 +12,7 @@ On a laptop Compose setup: you never built `alloy-network:dev`, or `.env` has th
 
 ### 2. Grafana shows 401 / 404, or nothing arrives
 
-`GC_OTLP_URL`, `GC_OTLP_ACCOUNT`, and `GC_OTLP_KEY` must all be from **the same** Grafana Cloud stack (same region). They live in `/etc/default/alloy` (or `.env` for Compose). Do not open the OTLP URL in a browser.
+`GC_OTLP_URL`, `GC_OTLP_ACCOUNT`, and `GC_OTLP_KEY` must all be from **the same** Grafana Cloud stack (same region). How to copy them: [grafana-cloud-otlp.md](../docs/grafana-cloud-otlp.md). They live in `/etc/default/alloy` (or `.env` for Compose). Do not open the OTLP URL in a browser.
 
 After editing that file: `sudo systemctl restart alloy`.
 
