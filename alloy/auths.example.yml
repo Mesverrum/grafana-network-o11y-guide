@@ -1,0 +1,22 @@
+# SNMP credential overlay — copy to auths.yml (gitignored). Do not commit secrets.
+#
+# Library modules stay in the image (/etc/alloy/snmp-network.yml).
+# discovery.snmp and prometheus.exporter.snmp both read this file.
+#
+# Fleet / Hub names blocks only: group { auths = ["public_v2"] }.
+# Load the blob with one of: this file, Vault, K8s Secret, S3, HTTP, env.
+# See docs/secrets.md.
+
+auths:
+  public_v2:
+    version: 2
+    community: public
+
+  # dc_v3:
+  #   version: 3
+  #   security_level: authPriv
+  #   username: netops
+  #   password: CHANGE-ME
+  #   priv_password: CHANGE-ME
+  #   auth_protocol: SHA256
+  #   priv_protocol: AES

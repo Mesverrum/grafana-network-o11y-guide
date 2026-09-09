@@ -1,0 +1,9 @@
+Grafana Network O11y Guide
+Copyright 2026 Marc Netterfield
+
+This repository is a companion how-to. It is not published by Grafana Labs
+as an official product. Grafana, Alloy, and Grafana Cloud are trademarks of
+Grafana Labs.
+
+SNMP discovery: Mesverrum/snmp-sd (Apache-2.0).
+Collector components: grafana/alloy and Mesverrum/alloy network-snmp.

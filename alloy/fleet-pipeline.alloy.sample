@@ -1,0 +1,123 @@
+// Fleet Management pipeline (network addons).
+// Edit CIDRs and auth *names* in the Fleet / Hub GUI.
+// Library paths are image defaults. Credentials: SNMP_AUTHS or auths_file on
+// the collector — never in this file.
+//
+// remotecfg cannot call components in the local ConfigMap. Keep OTLP receive
+// (if any) local; this pipeline exports OTLP itself.
+//
+// Matcher example: role="network-snmp"
+
+discovery.snmp "fabric" {
+  refresh_interval = "5m"
+  state_path       = "/var/lib/alloy/data/snmp-discovery.state.json"
+  auths            = env("SNMP_AUTHS")
+
+  group {
+    name  = "hq"
+    cidrs = ["10.0.0.0/24"]
+    auths = ["public_v2"]
+  }
+}
+
+discovery.relabel "snmp_hot" {
+  targets = discovery.snmp.fabric.targets
+
+  rule {
+    source_labels = ["snmp_tier"]
+    regex         = "hot"
+    action        = "keep"
+  }
+}
+
+prometheus.exporter.snmp "fabric_hot" {
+  auths   = env("SNMP_AUTHS")
+  targets = discovery.relabel.snmp_hot.output
+}
+
+prometheus.relabel "alloy_snmp_hot" {
+  forward_to = [otelcol.receiver.prometheus.default.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "alloy-snmp"
+  }
+
+  rule {
+    target_label = "snmp_tier"
+    replacement  = "hot"
+  }
+}
+
+prometheus.scrape "alloy_snmp_hot" {
+  targets         = prometheus.exporter.snmp.fabric_hot.targets
+  scrape_interval = "60s"
+  scrape_timeout  = "55s"
+  forward_to      = [prometheus.relabel.alloy_snmp_hot.receiver]
+}
+
+otelcol.receiver.prometheus "default" {
+  output {
+    metrics = [otelcol.processor.batch.gc.input]
+  }
+}
+
+otelcol.receiver.snmptrap "lab" {
+  targets = discovery.snmp.fabric.targets
+  attributes = {
+    collector = "alloy-snmptrap",
+  }
+
+  output {
+    logs = [otelcol.processor.transform.events.input]
+  }
+}
+
+otelcol.receiver.syslog "lab" {
+  protocol = "none"
+  on_error = "send"
+  targets  = discovery.snmp.fabric.targets
+
+  udp {
+    listen_address = "0.0.0.0:1514"
+    add_attributes = true
+  }
+
+  output {
+    logs = [otelcol.processor.transform.events.input]
+  }
+}
+
+otelcol.processor.transform "events" {
+  error_mode = "ignore"
+
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["service.name"], attributes["collector"]) where attributes["collector"] != nil`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.batch.gc.input]
+  }
+}
+
+otelcol.processor.batch "gc" {
+  output {
+    metrics = [otelcol.exporter.otlphttp.gc.input]
+    logs    = [otelcol.exporter.otlphttp.gc.input]
+  }
+}
+
+otelcol.auth.basic "gc" {
+  username = env("GC_OTLP_ACCOUNT")
+  password = env("GC_OTLP_KEY")
+}
+
+otelcol.exporter.otlphttp "gc" {
+  client {
+    endpoint = env("GC_OTLP_URL")
+    auth     = otelcol.auth.basic.gc.handler
+  }
+}

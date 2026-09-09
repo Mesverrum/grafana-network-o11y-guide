@@ -1,0 +1,291 @@
+// Local quickstart — one Alloy, no remotecfg.
+// Copy to config.alloy and set cidrs. For Fleet, see alloy/fleet-pipeline.alloy.sample
+// and docs/fleet.md (OTLP bootstrap stays local; network addons move to remotecfg).
+
+local.file "snmp_auths" {
+  filename = "/etc/alloy/auths.yml"
+  is_secret = true
+}
+
+discovery.snmp "fabric" {
+  refresh_interval = "5m"
+  state_path       = "/var/lib/alloy/data/snmp-discovery.state.json"
+  auths            = local.file.snmp_auths.content
+
+  group {
+    name  = "hq"
+    cidrs = ["10.0.0.0/24"]
+    auths = ["public_v2"]
+  }
+}
+
+// Identity for traps / syslog / flow sampler = the SNMP target list.
+// Extra aliases for non-SNMP hosts are optional (see docs/architecture.md).
+
+discovery.relabel "snmp_hot" {
+  targets = discovery.snmp.fabric.targets
+
+  rule {
+    source_labels = ["snmp_tier"]
+    regex         = "hot"
+    action        = "keep"
+  }
+}
+
+discovery.relabel "snmp_cold" {
+  targets = discovery.snmp.fabric.targets
+
+  rule {
+    source_labels = ["snmp_tier"]
+    regex         = "cold"
+    action        = "keep"
+  }
+}
+
+prometheus.exporter.snmp "fabric_hot" {
+  auths   = local.file.snmp_auths.content
+  targets = discovery.relabel.snmp_hot.output
+}
+
+prometheus.exporter.snmp "fabric_cold" {
+  auths   = local.file.snmp_auths.content
+  targets = discovery.relabel.snmp_cold.output
+}
+
+prometheus.relabel "alloy_snmp_hot" {
+  forward_to = [otelcol.receiver.prometheus.default.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "alloy-snmp"
+  }
+
+  rule {
+    target_label = "snmp_tier"
+    replacement  = "hot"
+  }
+}
+
+prometheus.relabel "alloy_snmp_cold" {
+  forward_to = [otelcol.receiver.prometheus.default.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "alloy-snmp"
+  }
+
+  rule {
+    target_label = "snmp_tier"
+    replacement  = "cold"
+  }
+}
+
+prometheus.scrape "alloy_snmp_hot" {
+  targets         = prometheus.exporter.snmp.fabric_hot.targets
+  scrape_interval = "60s"
+  scrape_timeout  = "55s"
+  forward_to      = [prometheus.relabel.alloy_snmp_hot.receiver]
+}
+
+prometheus.scrape "alloy_snmp_cold" {
+  targets         = prometheus.exporter.snmp.fabric_cold.targets
+  scrape_interval = "5m"
+  scrape_timeout  = "2m"
+  forward_to      = [prometheus.relabel.alloy_snmp_cold.receiver]
+}
+
+otelcol.receiver.prometheus "default" {
+  output {
+    metrics = [otelcol.processor.batch.gc.input]
+  }
+}
+
+otelcol.receiver.snmptrap "lab" {
+  listen_address = "0.0.0.0:11620"
+  targets        = discovery.snmp.fabric.targets
+  attributes     = {
+    job       = "snmptrap",
+    collector = "alloy-snmptrap",
+  }
+
+  output {
+    logs = [otelcol.processor.transform.snmptrap_logs.input]
+  }
+}
+
+otelcol.processor.transform "snmptrap_logs" {
+  error_mode = "ignore"
+
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["collector"], "alloy-snmptrap")`,
+      `set(attributes["service.name"], "alloy-snmptrap")`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.batch.gc.input]
+  }
+}
+
+otelcol.receiver.syslog "lab" {
+  protocol              = "none"
+  allow_skip_pri_header = true
+  on_error              = "send"
+  targets               = discovery.snmp.fabric.targets
+
+  udp {
+    listen_address = "0.0.0.0:1514"
+    add_attributes = true
+  }
+
+  output {
+    logs = [otelcol.processor.transform.syslog_logs.input]
+  }
+}
+
+otelcol.processor.transform "syslog_logs" {
+  error_mode = "ignore"
+
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(attributes["collector"], "alloy-syslog")`,
+      `set(attributes["service.name"], "alloy-syslog")`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.processor.batch.gc.input]
+  }
+}
+
+otelcol.receiver.netflow "ipfix" {
+  scheme              = "netflow"
+  hostname            = "0.0.0.0"
+  port                = 2055
+  targets             = discovery.snmp.fabric.targets
+  udp_host_cache_size = 1024
+
+  output {
+    logs = [otelcol.processor.transform.netflow_resource.input]
+  }
+}
+
+otelcol.receiver.netflow "sflow" {
+  scheme              = "sflow"
+  hostname            = "0.0.0.0"
+  port                = 6344
+  targets             = discovery.snmp.fabric.targets
+  udp_host_cache_size = 1024
+
+  output {
+    logs = [otelcol.processor.transform.netflow_resource.input]
+  }
+}
+
+otelcol.processor.transform "netflow_resource" {
+  error_mode = "ignore"
+
+  log_statements {
+    context = "resource"
+    statements = [
+      `set(resource.attributes["collector"], "alloy-netflow")`,
+      `set(resource.attributes["service.name"], "alloy-netflow")`,
+    ]
+  }
+
+  log_statements {
+    context = "log"
+    statements = [
+      `set(attributes["network.local.address"], attributes["source.address"]) where attributes["source.address"] != nil`,
+      `set(attributes["network.local.port"], attributes["source.port"]) where attributes["source.port"] != nil`,
+      `set(attributes["network.peer.address"], attributes["destination.address"]) where attributes["destination.address"] != nil`,
+      `set(attributes["network.peer.port"], attributes["destination.port"]) where attributes["destination.port"] != nil`,
+    ]
+  }
+
+  output {
+    logs = [otelcol.connector.signaltometrics.netflow.input]
+  }
+}
+
+otelcol.connector.signaltometrics "netflow" {
+  error_mode = "ignore"
+
+  logs {
+    name        = "alloy.network.io.by_flow"
+    description = "Bytes observed in decoded NetFlow/IPFIX/sFlow records"
+    unit        = "By"
+    include_resource_attributes {
+      key = "service.name"
+    }
+    attributes {
+      key = "network.local.address"
+    }
+    attributes {
+      key = "network.peer.address"
+    }
+    attributes {
+      key = "network.transport"
+    }
+    attributes {
+      key = "flow.sampler_address"
+    }
+    attributes {
+      key      = "device_name"
+      optional = true
+    }
+    sum {
+      value = "Int(attributes[\"flow.io.bytes\"])"
+    }
+  }
+
+  output {
+    metrics = [otelcol.processor.deltatocumulative.netflow.input]
+  }
+}
+
+otelcol.processor.deltatocumulative "netflow" {
+  max_stale   = "5m"
+  max_streams = 100000
+
+  output {
+    metrics = [otelcol.processor.transform.netflow_metrics.input]
+  }
+}
+
+otelcol.processor.transform "netflow_metrics" {
+  error_mode = "ignore"
+
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `set(datapoint.attributes["integration"], "alloy-netflow")`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.gc.input]
+  }
+}
+
+otelcol.processor.batch "gc" {
+  output {
+    metrics = [otelcol.exporter.otlphttp.gc.input]
+    logs    = [otelcol.exporter.otlphttp.gc.input]
+  }
+}
+
+otelcol.auth.basic "gc" {
+  username = env("GC_OTLP_ACCOUNT")
+  password = env("GC_OTLP_KEY")
+}
+
+otelcol.exporter.otlphttp "gc" {
+  client {
+    endpoint = env("GC_OTLP_URL")
+    auth     = otelcol.auth.basic.gc.handler
+  }
+}

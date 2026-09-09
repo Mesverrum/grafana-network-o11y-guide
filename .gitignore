@@ -1,0 +1,12 @@
+.env
+alloy/config.alloy
+alloy/auths.yml
+compose.override.yaml
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.vscode/
+.idea/
