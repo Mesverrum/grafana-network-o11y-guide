@@ -1,31 +1,48 @@
-# Fleet and Instrumentation Hub
+# Fleet Management
 
 [← README](../README.md)
 
-The product story is **GUI-driven config, collector picks it up**. Today that GUI is Grafana Cloud **Connections → Collector → Fleet Management**. A future Instrumentation Hub should generate the same surface.
+**Idea:** edit CIDRs and listen ports in Grafana Cloud; each poller picks the change up. You still keep SNMP communities and the Cloud token **on the poller**.
 
-## What goes in Fleet
+Today the UI is **Connections → Collector → Fleet Management**. (Grafana may fold this into an “Instrumentation Hub” later; the split is the same: names in Cloud, secrets on the host.)
 
-Operator config only — small, editable in a form:
+## Enroll a poller
 
-- Discovery groups: name, CIDRs, auth **names** (`public_v2`, not the community)
-- Which scrape tiers to run
-- Enable traps / syslog / netflow and listen ports
+1. On the poller, Alloy is installed and the network binary is in place ([install-alloy.md](install-alloy.md)).
+2. In Grafana Cloud, open **Connections → Collector → Fleet Management**.
+3. **Add collector** (wording varies slightly). The UI prints a short config snippet that starts with `remotecfg`.
+4. Put that snippet in `/etc/alloy/config.alloy` and reload: `sudo systemctl reload alloy`.
+5. The host should appear as online in Fleet.
 
-Sample River: [`alloy/fleet-pipeline.alloy.sample`](../alloy/fleet-pipeline.alloy.sample).
+That snippet only tells Alloy *where* to pull config. It is not where you put communities.
 
-The MIB library and fingerprinters stay in the **image**. Do not paste megabyte YAML into Fleet.
+## What you put in the Fleet pipeline
 
-## What stays on the collector
+Keep it small — things you would type in an NMS “add site” form:
 
-- Secrets — [docs/secrets.md](secrets.md)
-- OTLP bootstrap if you also receive locally (`remotecfg` cannot call components in the local ConfigMap)
-- `--stability.level=experimental` until the network components are GA
+- Group name (e.g. `hq`)
+- CIDRs to scan
+- Auth **names** (`public_v2`) — not the community string
+- Whether to run hot / cold / topology polls
+- Trap / syslog / flow listen ports
 
-## Why a lab might have remotecfg off
+Sample you can paste and then edit: [`alloy/fleet-pipeline.alloy.sample`](../alloy/fleet-pipeline.alloy.sample).
 
-If you dual-run ktranslate and Alloy, Fleet must not bind `:1620` / `:1514` or ktranslate loses traps/syslog. That is a harness hack. Design partners should see **Alloy-only + remotecfg**, not parallel collectors.
+**Fleet is not a secret store.** If you are about to type `community:`, `password:`, `priv_password:`, or `glc_`, stop and put it on the poller instead ([secrets.md](secrets.md)).
 
-## Token
+Do not paste `/etc/alloy/snmp-network.yml` (the vendor OID library) into Fleet. It is large and already on the host from the install.
 
-Upserting a pipeline needs `fleet-management:write`. A metrics-only OTLP key is not enough.
+## What stays on the poller
+
+- `/etc/alloy/auths.yml` (or Vault / env — see [secrets.md](secrets.md))
+- `GC_OTLP_*` in `/etc/default/alloy`
+- `CUSTOM_ARGS="--stability.level=experimental"`
+- The `remotecfg` snippet itself
+
+**Export to Cloud:** the pipeline in Fleet cannot “call” blocks that exist only in the local file. Practical rule: put the “send to Grafana Cloud” export **in the Fleet sample** (it already does), *or* keep a local file that only does export and do not split one export across both. If you do both and they listen on the same trap/syslog port, one of them will fail to bind.
+
+## Token permission
+
+Creating or updating a Fleet pipeline needs an access policy with **fleet-management:write**. The token you copied from **Connections → OpenTelemetry** is often metrics/logs/traces write only.
+
+In Grafana Cloud: **Administration** (or **Security**) → **Access policies** → create or edit a policy → enable Fleet Management write → new token. Put that token only in the enroll snippet / poller env — not in the pipeline text.

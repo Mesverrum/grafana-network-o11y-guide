@@ -1,73 +1,67 @@
-# Architecture
+# How the collector is wired
 
 [← README](../README.md)
 
-One Alloy process is the collector. There is no ktranslate sidecar.
+One Alloy process on the poller does discovery, polling, traps, syslog, and flow. Nothing else has to sit in front of Grafana Cloud.
 
 ```mermaid
 flowchart TB
   subgraph net["Your network"]
     DEV["Routers · switches · firewalls"]
   end
-  subgraph alloy["Alloy"]
-    SD["discovery.snmp<br/>CIDR + named auths"]
-    POLL["prometheus.exporter.snmp<br/>hot / cold / topology"]
-    TRAP["otelcol.receiver.snmptrap"]
-    SYS["otelcol.receiver.syslog"]
-    FLOW["otelcol.receiver.netflow"]
+  subgraph alloy["Alloy on the poller"]
+    SD["Discover: CIDR + named SNMP creds"]
+    POLL["Poll SNMP: hot / cold / topology"]
+    TRAP["Receive traps"]
+    SYS["Receive syslog"]
+    FLOW["Receive NetFlow / sFlow"]
   end
   GC[("Grafana Cloud")]
   DEV -->|UDP 161| POLL
-  SD -->|targets| POLL
-  SD -->|targets| TRAP
-  SD -->|targets| SYS
-  SD -->|targets| FLOW
+  SD -->|same device list| POLL
+  SD -->|same device list| TRAP
+  SD -->|same device list| SYS
+  SD -->|same device list| FLOW
   DEV -->|traps| TRAP
   DEV -->|syslog| SYS
-  DEV -->|netflow / sflow| FLOW
+  DEV -->|flow| FLOW
   POLL --> GC
   TRAP --> GC
   SYS --> GC
   FLOW --> GC
 ```
 
-## Alloy image
+## What must be installed
 
-Stock `grafana/alloy` already has `prometheus.exporter.snmp` and `otelcol.receiver.syslog`. Until upstream merges:
+The official Linux package gives you the service. This guide’s discovery / trap / flow config needs the **network** build on top of that. Follow [install-alloy.md](install-alloy.md) — you do not need to read GitHub issues to finish install.
 
-| Component | Status |
-|-----------|--------|
-| `discovery.snmp` | [snmp-sd](https://github.com/Mesverrum/snmp-sd) library + Alloy wrapper on [Mesverrum/alloy](https://github.com/Mesverrum/alloy) `network-snmp` |
-| `otelcol.receiver.snmptrap` | Fork — looks like an otelcol receiver; waiting on OpenTelemetry ([alloy#440](https://github.com/grafana/alloy/issues/440)) |
-| `otelcol.receiver.netflow` | Experimental wrap of contrib ([alloy#6304](https://github.com/grafana/alloy/issues/6304)) |
+The large SNMP “which OIDs for which vendor” library is **inside that build** (`/etc/alloy/snmp-network.yml`). Do not paste it into Fleet.
 
-Build the fork (`Dockerfile.network-src` / `ALLOY_NETWORK_FROM_SOURCE=1`) and set `ALLOY_IMAGE` in `.env`. The MIB / fingerprinter library is **in the image**, not this repo.
+## How often Alloy polls (hot / cold / topology)
 
-## Scrape tiers
+After discovery sees a `sysObjectID`, it assigns vendor modules. Polling is split so you do not walk everything every minute (same idea as fast vs slow NMS cycles):
 
-Discovery assigns modules per `sysObjectID`. Typical split:
+| Name | Typical interval | What you get |
+|------|------------------|--------------|
+| **hot** | 60 seconds | Device identity, CPU / memory, interface octets, oper status, speed |
+| **cold** | 5 minutes | Interface names, packet counters, errors, discards, IP table if the device speaks IP-MIB |
+| **topology** | 15 minutes | LLDP / BGP-class (optional) |
 
-| Tier | Interval | What |
-|------|----------|------|
-| **hot** | 60s | Identity, CPU/mem, IF-MIB octets / oper / speed |
-| **cold** | 5m | Names, packet counters, errors, discards, IP inventory when the device speaks IP-MIB |
-| **topology** | 15m | LLDP / BGP-class (optional) |
+`snmp_group` is the **group name you typed** in config (`hq`, `branch`). Use it as a site or credential bucket. Put CMDB site / role in NetBox or similar, not as a second Prometheus label unless you have a reason.
 
-`snmp_group` is the discovery **group name** (`hq` above) — a site/credential bucket, not a CMDB.
+## Device names on traps, syslog, and flow
 
-## Identity (not a second catalog)
+Discovery produces a list: management IP + `device_name` + `snmp_group`. Traps, syslog, and flow use that same list. A packet from a polled IP gets the same name as the SNMP series.
 
-`discovery.snmp` emits `address` + `device_name` + `snmp_group`. Pass that target list into trap, syslog, and netflow `targets =`. A packet from a polled IP gets the same `device_name`.
+That answers “which router sent this.” Flow *conversations* (client ↔ server) only get a friendly `src_device` / `dst_device` if that IP is also in the SNMP list. Most servers are not. You will see IPs, or reverse-DNS names when that is enabled. That is normal.
 
-That is enough for “which router sent this.” Conversation endpoints (`src_device` / `dst_device`) only resolve if that IP is also in the target list. Servers usually are not. Use IPs or reverse-DNS (`src_host` / `dst_host`) for 5-tuples. Optional extra aliases are operator YAML in Fleet — default empty.
+## What to query in Grafana
 
-## Metric / log names
+| Signal | In Explore, use |
+|--------|-----------------|
+| SNMP | Prometheus: `snmp_CPU`, `snmp_ifHCInOctets`, … filter `job="alloy-snmp"` |
+| Flow | Prometheus: `alloy_network_io_by_flow_bytes{integration="alloy-netflow"}` — wrap in `rate(…[5m])` |
+| Traps | Loki: `{service_name="alloy-snmptrap"}` |
+| Syslog | Loki: `{service_name="alloy-syslog"}` |
 
-| Signal | What to query |
-|--------|----------------|
-| SNMP | `snmp_CPU`, `snmp_ifHCInOctets`, `snmp_tBgpPeerNgConnState`, … (`job="alloy-snmp"`) |
-| Flow | `alloy_network_io_by_flow_bytes{integration="alloy-netflow"}` — **use `rate()`** (cumulative Sum) |
-| Traps | Loki `{service_name="alloy-snmptrap"}` |
-| Syslog | Loki `{service_name="alloy-syslog"}` |
-
-There is no `kentik_snmp_*` on this path.
+Paste-ready examples: [grafana.md](grafana.md). Why `rate()` and not “divide by 60”: these are normal increasing counters, not 60-second delta gauges.

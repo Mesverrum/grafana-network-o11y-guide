@@ -1,27 +1,20 @@
-# Secrets
+# Secrets (communities, v3, Cloud token)
 
 [← README](../README.md)
 
-Fleet has **no** secret store. That is intentional. The GUI stores auth **names**. Alloy on the collector resolves the blob.
+**Grafana Fleet Management cannot store secrets.** That is a product limit, not a style choice. Anyone who can open the pipeline can read the text. Put credentials on the poller. Fleet only stores **names** like `public_v2`.
 
-Official Alloy guidance: [Access and permissions — Secrets and credentials](https://grafana.com/docs/alloy/latest/access_permissions/).
+Official Alloy list of secret sources: [Secrets and credentials](https://grafana.com/docs/alloy/latest/access_permissions/).
 
-## Six documented sources
+## Start here: a file on the poller
 
-| # | Source | Component | Notes |
-|---|--------|-----------|--------|
-| 1 | Environment | `sys.env()` / `env("SNMP_AUTHS")` | Same YAML as `auths.example.yml` in one variable |
-| 2 | File | `local.file` + `is_secret = true` / `auths_file` | What the Compose quickstart uses |
-| 3 | HashiCorp Vault | [`remote.vault`](https://grafana.com/docs/alloy/latest/reference/components/remote/remote.vault/) | GA. KV v2. Auth: token, AppRole, Kubernetes, AWS, Azure, GCP, LDAP |
-| 4 | Kubernetes | [`remote.kubernetes.secret`](https://grafana.com/docs/alloy/latest/reference/components/remote/remote.kubernetes.secret/) | In-cluster Secret |
-| 5 | S3 object | [`remote.s3`](https://grafana.com/docs/alloy/latest/reference/components/remote/remote.s3/) | `is_secret = true` — a file in a bucket, not Secrets Manager |
-| 6 | HTTP | [`remote.http`](https://grafana.com/docs/alloy/latest/reference/components/remote/remote.http/) | Poll a URL; mark the body secret |
+```
+sudo cp alloy/auths.example.yml /etc/alloy/auths.yml
+sudo chmod 600 /etc/alloy/auths.yml
+sudo chown root:root /etc/alloy/auths.yml
+```
 
-There is **no** native `remote.aws.secretsmanager` ([alloy#689](https://github.com/grafana/alloy/issues/689)). AWS shops: External Secrets → Kubernetes Secret, dump into env/file at start, put the YAML in S3, or put Vault in front (`remote.vault` + `auth.aws`).
-
-## Shape
-
-One YAML document, many named blocks. Fleet lists the names:
+One file, several named blocks. Edit `community` / v3 fields to match the devices. Config and Fleet say `auths = ["public_v2"]` — they never contain the string `public`.
 
 ```yaml
 auths:
@@ -37,6 +30,25 @@ auths:
     auth_protocol: SHA256
     priv_protocol: AES
 ```
+
+The Cloud token (`GC_OTLP_KEY`) goes in `/etc/default/alloy` (or `/etc/sysconfig/alloy`), not in this file and not in Fleet.
+
+## If your org already has a secret store
+
+Alloy can read the **same YAML shape** from somewhere else. You do not have to use a file.
+
+| If you already use | Alloy reads it with | Notes |
+|--------------------|---------------------|--------|
+| A file on disk | `local.file` (what the samples use) | `chmod 600` |
+| An environment variable | `env("SNMP_AUTHS")` | Whole YAML in one variable |
+| HashiCorp Vault | `remote.vault` | KV v2; many auth methods |
+| Kubernetes | `remote.kubernetes.secret` | In-cluster only |
+| A file in an S3 bucket | `remote.s3` | A YAML object, **not** AWS Secrets Manager |
+| An HTTPS URL your team hosts | `remote.http` | Mark the body secret |
+
+There is **no** built-in AWS Secrets Manager hook yet ([alloy#689](https://github.com/grafana/alloy/issues/689)). Typical AWS workarounds: put the YAML in S3, inject it at boot into a file/env, or put Vault in front.
+
+Vault example (only if you use Vault). Fleet still lists `dc_v3`, not the password:
 
 ```alloy
 remote.vault "snmp" {

@@ -1,12 +1,9 @@
-// Fleet Management pipeline (network addons).
-// Edit CIDRs and auth *names* in the Fleet / Hub GUI.
-// Library paths are image defaults. Credentials: SNMP_AUTHS or auths_file on
-// the collector — never in this file.
+// Paste into Grafana Cloud → Connections → Collector → Fleet Management.
+// Edit CIDRs and auth *names* only. Communities and tokens stay on the poller
+// (SNMP_AUTHS env or /etc/alloy/auths.yml) — never in this file.
 //
-// remotecfg cannot call components in the local ConfigMap. Keep OTLP receive
-// (if any) local; this pipeline exports OTLP itself.
-//
-// Matcher example: role="network-snmp"
+// This pipeline sends OTLP to Cloud itself. Do not also bind the same
+// trap/syslog ports in /etc/alloy/config.alloy.
 
 discovery.snmp "fabric" {
   refresh_interval = "5m"

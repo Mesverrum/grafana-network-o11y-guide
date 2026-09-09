@@ -1,7 +1,9 @@
-# Assistant skills
+# Notes for editing dashboards
 
-Portable Grafana Assistant / operator notes for Alloy network dashboards.
+Optional. For people changing the A0–A4 boards, not required to get data flowing.
 
-- Design patterns and hardware-expand skills today live with the ktranslate pack; Alloy-native copies will land here as A0–A4 stabilize.
-- Metric prefix: `snmp_*` / `alloy_network_io_by_flow_*`, not `kentik_snmp_*`.
-- Device label: `device_name`. Site: `snmp_group`.
+- Metric names start with `snmp_` (devices) or `alloy_network_io_by_flow_` (flow).
+- Device label: `device_name`. Site / group label: `snmp_group`.
+- Interface and flow rates use `rate(...)`, not divide-by-60.
+
+Design-pattern writeups will land here when the boards are exported.

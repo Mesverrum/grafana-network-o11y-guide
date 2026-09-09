@@ -1,5 +1,7 @@
-# Dashboards
+# Dashboard JSON
 
-Import JSON from this folder in Grafana Cloud (Dashboards → Import). Use the v2 API / UI for tabbed boards — never re-save TabsLayout via `POST /api/dashboards/db`.
+In Grafana Cloud: **Dashboards → New → Import** → upload a file from this folder. Choose your Prometheus and Loki data sources.
 
-The A0–A4 set will be added as portable exports (no lab stack UIDs). See [docs/dashboards.md](../docs/dashboards.md).
+Device Details is tabbed. If you re-save it in a way that collapses the tabs into one long page, import this file again.
+
+The A0–A4 set will appear here as portable exports (no one-lab URLs baked in). See [docs/dashboards.md](../docs/dashboards.md).

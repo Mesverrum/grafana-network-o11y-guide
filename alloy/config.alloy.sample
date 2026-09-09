@@ -1,6 +1,6 @@
-// Local quickstart — one Alloy, no remotecfg.
-// Copy to config.alloy and set cidrs. For Fleet, see alloy/fleet-pipeline.alloy.sample
-// and docs/fleet.md (OTLP bootstrap stays local; network addons move to remotecfg).
+// Copy to /etc/alloy/config.alloy and set the CIDR below.
+// First-time path: no Fleet. When you enroll in Fleet Management, use
+// alloy/fleet-pipeline.alloy.sample instead (see docs/fleet.md).
 
 local.file "snmp_auths" {
   filename = "/etc/alloy/auths.yml"
