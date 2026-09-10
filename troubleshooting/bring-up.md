@@ -2,7 +2,7 @@
 
 [← README](../README.md)
 
-Work top to bottom. The local Alloy page http://127.0.0.1:12345 (on the poller) is faster than guessing in Cloud.
+Work top to bottom. Confirm on the imported dashboards (Device Summary, Health) and on the local Alloy page http://127.0.0.1:12345 (on the poller) before guessing in Explore.
 
 ### 1. Log says `unknown component "discovery.snmp"`
 
@@ -19,7 +19,7 @@ After editing that file: `sudo systemctl restart alloy`.
 ### 3. Discovery finds zero devices
 
 - `/etc/alloy/auths.yml` missing, or `chmod` not readable by the `alloy` service user
-- Config says `auths = ["public_v2"]` but the file has a different block name
+- Config says `auths = ["public_v2", "campus_v2"]` but those names are missing as keys in the file
 - Community / v3 on the device does not match the file — prove it with [snmp.md](snmp.md)
 
 ### 4. `snmpget` from the poller fails
@@ -28,13 +28,13 @@ Alloy will fail the same way. Management ACL, wrong VRF, device SNMP disabled, o
 
 Docker on a laptop: the container is often on a bridge that cannot see the campus management network. Use a poller on that network, or `network_mode: host` on Linux.
 
-### 5. Alloy looks healthy locally, Explore is empty
+### 5. Alloy looks healthy locally, dashboards are empty
 
-You are logged into a **different** Grafana Cloud stack than `GC_OTLP_*` on the poller. Check the browser URL vs the URL in `/etc/default/alloy`.
+You are logged into a **different** Grafana Cloud stack than `GC_OTLP_*` on the poller. Check the browser URL vs the URL in `/etc/default/alloy`. On import, pick the Prometheus/Loki data sources that belong to **this** stack.
 
-### 6. You queried the wrong metric
+### 6. One panel is empty, others are not
 
-Device inventory is `snmp_CPU`. There is no single `DeviceMetrics` metric on this path. Copy queries from [grafana.md](../docs/grafana.md).
+The query on that panel may be wrong for this path. Optional: paste the panel query in Explore ([grafana.md](../docs/grafana.md)). Device inventory is `snmp_CPU` — there is no single `DeviceMetrics` metric.
 
 ### 7. Traps or syslog missing
 

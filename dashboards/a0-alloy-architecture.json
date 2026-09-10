@@ -1,0 +1,595 @@
+{
+  "kind": "Dashboard",
+  "apiVersion": "dashboard.grafana.app/v2",
+  "metadata": {
+    "name": "alloy-architecture"
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "query": {
+            "kind": "DataQuery",
+            "group": "grafana",
+            "version": "v0",
+            "spec": {}
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "builtIn": true
+        }
+      }
+    ],
+    "cursorSync": "Off",
+    "description": "Alloy network-fork architecture (SNMP / traps / syslog / netflow).",
+    "editable": true,
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1,
+          "title": "Purpose & audience",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Alloy network \u2192 Grafana Cloud\n\nThese dashboards read the **Alloy network addons** (SNMP + traps + syslog + flow).\n\n**What you get when it works:**\n- SNMP as curated `snmp_*` (`job=\"alloy-snmp\"`, label `snmp_group`)\n- Interface counters are Prometheus **counters** \u2014 `rate(snmp_ifHCInOctets[$__rate_interval]) * 8` or recording rule `if:snmp_ifHCInOctets:rate5m * 8`\n- Flow as `alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}` \u2014 use **`rate()` / `increase()`**\n- Traps as Loki `{service_name=\"alloy-snmptrap\"}` (JSON; group by `trap_oid`)\n- Syslog as Loki `{service_name=\"alloy-syslog\"}` (plain text; `severity` is a label)\n\n**Docs:** [alloy-network-fork.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/architecture.md) \u00b7 fork [Mesverrum/alloy `network-snmp`](https://github.com/Mesverrum/alloy/tree/network-snmp) \u00b7 discovery [Mesverrum/snmp-sd](https://github.com/Mesverrum/snmp-sd)\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-2": {
+        "kind": "Panel",
+        "spec": {
+          "id": 2,
+          "title": "Architecture (reference)",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## End-to-end data path\n\n```\nNetwork devices Alloy (hostNetwork)\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nSNMP :161 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba prometheus.exporter.snmp\n discovery.snmp (snmp-sd fingerprinters)\n hot 60s / cold 5m\nTraps :1620 otelcol.receiver.snmptrap\nSyslog :1514 otelcol.receiver.syslog (protocol=none)\nNetFlow :2055 / sFlow :6344 otelcol.receiver.netflow \u2192 signaltometrics\n Alloy OTLP HTTP \u2500\u2500\u25ba Grafana Cloud\n```\n\nThis lab's Alloy also listens on `:11620` / `:1515` when another collector already owns `:1620` / `:1514`.\n\n**Identity:** `device_name` from the SNMP catalog. Group label is **`snmp_group`** (hq / branch1 / branch2).\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-3": {
+        "kind": "Panel",
+        "spec": {
+          "id": 3,
+          "title": "Docker Compose services",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Collectors (Alloy path)\n\n| Signal | Component | Parallel listen | How to query |\n|---|---|---|---|\n| SNMP | `prometheus.exporter.snmp` + `discovery.snmp` | scrape :161 | `snmp_CPU{job=\"alloy-snmp\"}` |\n| Traps | `otelcol.receiver.snmptrap` | `:11620` | `{service_name=\"alloy-snmptrap\"}` |\n| Syslog | `otelcol.receiver.syslog` | `:1515` | `{service_name=\"alloy-syslog\"}` |\n| NetFlow / sFlow | `otelcol.receiver.netflow` | `:2055` / `:6344` | `rate(alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}[5m])` |\n\nComposites: Grafana-managed recording rules `device:snmp_MemoryUtilization:percent`, `if:snmp_ifHCInOctets:rate5m` (octets/s \u2014 multiply by 8 for bps).\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-4": {
+        "kind": "Panel",
+        "spec": {
+          "id": 4,
+          "title": "Deployment model (credential groups)",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Discovery groups\n\nAlloy discovery is Prometheus-shaped: named **`auth`** + SuperQ fingerprinters \u2192 module list.\n\n| Example `snmp_group` | What it is |\n|---|---|\n| `hq` | One discovery job / site (your names) |\n| `branch1` | Another CIDR or credential set |\n\nTiers: **hot** (60s \u2014 CPU/mem/octets/oper), **cold** (5m \u2014 names, errors, packet counters, IP inventory). BGP flaps are traps/syslog, not a poll interval.\n\nCredentials stay on the collector (`SNMP_AUTHS` / `auths_file`), not in Fleet text.\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-5": {
+        "kind": "Panel",
+        "spec": {
+          "id": 5,
+          "title": "Metrics you should see",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Proof queries (this stack)\n\n```promql\ncount by (device_name) (snmp_CPU{job=\"alloy-snmp\"})\ncount by (snmp_group) (snmp_CPU{job=\"alloy-snmp\"})\nrate(snmp_ifHCInOctets{job=\"alloy-snmp\"}[$__rate_interval]) * 8\nif:snmp_ifHCInOctets:rate5m * 8\nrate(alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}[5m]) * 8\nup{job=\"alloy-snmp\",snmp_tier=\"hot\"}\n```\n\n```logql\n{service_name=\"alloy-snmptrap\"}\n{service_name=\"alloy-syslog\"}\n```\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-6": {
+        "kind": "Panel",
+        "spec": {
+          "id": 6,
+          "title": "Dashboards in this folder",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Alloy network folder\n\n| # | Dashboard | UID |\n|---|---|---|\n| A0 | Alloy Architecture | `alloy-architecture` |\n| A1 | Alloy Health | `alloy-health` |\n| A2 | Alloy Flow Summary | `alloy-flow-summary` |\n| A3 | Alloy Device Summary | `alloy-device-summary` |\n| A4 | Alloy Device Details | `alloy-device-details` |\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-7": {
+        "kind": "Panel",
+        "spec": {
+          "id": 7,
+          "title": "Site rollout checklist",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Site rollout checklist\n\n1. Alloy is scraping SNMP (`up{job=\"alloy-snmp\",snmp_tier=\"hot\"}`)\n2. Traps reach Alloy (`:1620`, or `:11620` if that port is already taken)\n3. Syslog reaches Alloy (`:1514`, or `:1515` alias)\n4. Softflowd / sFlow exporters point at Alloy `:2055` / `:6344`\n5. Explore: `count by (device_name) (snmp_CPU{job=\"alloy-snmp\"})` matches inventory\n6. Recording rules: `if:snmp_ifHCInOctets:rate5m` (may take ~1\u20135m after provision)\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-8": {
+        "kind": "Panel",
+        "spec": {
+          "id": 8,
+          "title": "Verification queries",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## Explore snippets\n\n**SNMP inventory**\n`count by (device_name, snmp_group) (snmp_CPU{job=\"alloy-snmp\"})`\n\n**Hot scrape up**\n`up{job=\"alloy-snmp\",snmp_tier=\"hot\"}`\n\n**Interface bps (counters)**\n`rate(snmp_ifHCInOctets{job=\"alloy-snmp\",device_name=~\"$device\"}[$__rate_interval]) * 8`\n\n**Flow**\n`count(alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"})`\n\n**Traps / syslog**\n`{service_name=\"alloy-snmptrap\"}` \u00b7 `{service_name=\"alloy-syslog\"}`\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      },
+      "panel-9": {
+        "kind": "Panel",
+        "spec": {
+          "id": 9,
+          "title": "Troubleshooting & references",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "transformations": [],
+              "queryOptions": {}
+            }
+          },
+          "vizConfig": {
+            "kind": "VizConfig",
+            "group": "text",
+            "version": "13.1.0-27822252871",
+            "spec": {
+              "options": {
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                },
+                "content": "## If panels are empty\n\n- Device dropdown + `$__all`: pick `snmp_group=hq` (or any concrete group). `allValue` should be `.*`.\n- Wrong metric family: this folder is `snmp_*` / `alloy_*`.\n- Interface bps still empty after ~2m: recording rules `if:snmp_ifHCInOctets:rate5m` evaluate every 60s; fallback is `rate(snmp_ifHCInOctets[$__rate_interval])*8`.\n- Health queue-style panels are Alloy scrape / component metrics.\n\n**References:** [docs/alloy-network-fork.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/architecture.md) \u00b7 [Mesverrum/alloy network-snmp](https://github.com/Mesverrum/alloy/tree/network-snmp) \u00b7 [snmp-sd](https://github.com/Mesverrum/snmp-sd)\n",
+                "mode": "markdown"
+              },
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              }
+            }
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 0,
+              "width": 24,
+              "height": 9,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 9,
+              "width": 24,
+              "height": 44,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-2"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 53,
+              "width": 24,
+              "height": 13,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-3"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 66,
+              "width": 24,
+              "height": 18,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-4"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 84,
+              "width": 24,
+              "height": 10,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-5"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 94,
+              "width": 24,
+              "height": 9,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-6"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 103,
+              "width": 24,
+              "height": 22,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-7"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 125,
+              "width": 24,
+              "height": 20,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-8"
+              }
+            }
+          },
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "x": 0,
+              "y": 145,
+              "width": 24,
+              "height": 17,
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-9"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [
+      {
+        "title": "Network O11y",
+        "url": "",
+        "type": "dashboards",
+        "icon": "dashboard",
+        "tooltip": "",
+        "tags": [
+          "network-o11y"
+        ],
+        "asDropdown": true,
+        "targetBlank": false,
+        "includeVars": true,
+        "keepTime": true
+      }
+    ],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "architecture",
+      "documentation",
+      "alloy",
+      "network-o11y"
+    ],
+    "timeSettings": {
+      "timezone": "browser",
+      "from": "now-6h",
+      "to": "now",
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "hideTimepicker": false,
+      "fiscalYearStartMonth": 0
+    },
+    "title": "A0. Alloy Architecture",
+    "variables": [
+      {
+        "kind": "DatasourceVariable",
+        "spec": {
+          "name": "datasource",
+          "pluginId": "prometheus",
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "options": [],
+          "multi": false,
+          "includeAll": false,
+          "label": "Prometheus data source",
+          "hide": "dontHide",
+          "skipUrlSync": false,
+          "allowCustomValue": true
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "name": "snmp_group",
+          "current": {
+            "text": "All",
+            "value": [
+              "$__all"
+            ]
+          },
+          "label": "SNMP group",
+          "hide": "dontHide",
+          "refresh": "onTimeRangeChanged",
+          "skipUrlSync": false,
+          "query": {
+            "kind": "DataQuery",
+            "group": "prometheus",
+            "version": "v0",
+            "datasource": {
+              "name": "${datasource}"
+            },
+            "spec": {
+              "label": "snmp_group",
+              "metric": "snmp_CPU",
+              "qryType": 1,
+              "query": "label_values(snmp_CPU,snmp_group)",
+              "refId": "PrometheusVariableQueryEditor-VariableQuery"
+            }
+          },
+          "regex": "",
+          "regexApplyTo": "value",
+          "sort": "alphabeticalAsc",
+          "options": [],
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "allowCustomValue": true
+        }
+      }
+    ]
+  }
+}

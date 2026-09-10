@@ -27,4 +27,4 @@ snmpget -v3 -l authPriv -u netops -a SHA-256 -A 'auth-pass' -x AES -X 'priv-pass
 
 ## Config names
 
-In `/etc/alloy/config.alloy` (or Fleet), `auths = ["public_v2"]` must be a key under `auths:` in `/etc/alloy/auths.yml`. A typo here looks like “discovery is broken” but is just a name mismatch.
+In `/etc/alloy/config.alloy` (or Fleet), every name in `auths = ["public_v2", "campus_v2"]` must be a key under `auths:` in `/etc/alloy/auths.yml`. A typo here looks like “discovery is broken” but is just a name mismatch.

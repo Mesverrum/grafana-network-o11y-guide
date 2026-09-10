@@ -1,4 +1,4 @@
-// Copy to /etc/alloy/config.alloy and set the CIDR below.
+// Copy to /etc/alloy/config.alloy and edit the lists below.
 // First-time path: no Fleet. When you enroll in Fleet Management, use
 // alloy/fleet-pipeline.alloy.sample instead (see docs/fleet.md).
 
@@ -14,8 +14,14 @@ discovery.snmp "fabric" {
 
   group {
     name  = "hq"
-    cidrs = ["10.0.0.0/24"]
-    auths = ["public_v2"]
+    cidrs = ["10.0.0.0/24", "10.0.1.0/24"]
+    auths = ["public_v2", "campus_v2"]
+  }
+
+  group {
+    name  = "branch"
+    cidrs = ["10.10.0.0/24", "192.168.10.1/32"]
+    auths = ["public_v2", "campus_v2"]
   }
 }
 

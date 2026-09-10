@@ -1,6 +1,8 @@
-# Explore queries
+# Explore queries (only if a dashboard is empty)
 
 [← README](../README.md)
+
+Bring-up is **import the dashboards** ([dashboards.md](dashboards.md)). Use Explore only to debug a blank panel.
 
 **Explore** is Grafana’s scratch query page (compass icon on the left).
 

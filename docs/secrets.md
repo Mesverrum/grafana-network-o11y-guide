@@ -8,17 +8,50 @@ Official Alloy list of secret sources: [Secrets and credentials](https://grafana
 
 ## Start here: a file on the poller
 
+Two ways to get `/etc/alloy/auths.yml`. Config and Fleet then list the **names** only (`public_v2`, `campus_v2`) — never the community string.
+
+**Ask-and-write (good first time).** After you installed the network program ([install-alloy.md](install-alloy.md)), `snmp-discovery` is on the poller. It writes a `0600` auths file and a matching name list so you cannot typo `public_v2` in one place and `pubic_v2` in the other:
+
+```
+sudo snmp-discovery init \
+  --out-auths /etc/alloy/auths.yml \
+  --out-discovery /tmp/discovery.yml
+```
+
+With no `--auth-*` / `--group` flags it asks questions (community or v3, then CIDRs). Non-interactive:
+
+```
+sudo snmp-discovery init \
+  --out-auths /etc/alloy/auths.yml \
+  --out-discovery /tmp/discovery.yml \
+  --auth-v2 public_v2=public \
+  --group hq,cidrs=10.0.0.0/24,auths=public_v2
+```
+
+Copy the **names** (and CIDRs) into `/etc/alloy/config.alloy` or Fleet. Alloy does not read `discovery.yml` — you can delete it. Check names match:
+
+```
+snmp-discovery init --check --auths /etc/alloy/auths.yml --discovery /tmp/discovery.yml
+```
+
+**Or copy the example** and edit it yourself:
+
 ```
 sudo cp alloy/auths.example.yml /etc/alloy/auths.yml
 sudo chmod 600 /etc/alloy/auths.yml
 sudo chown root:root /etc/alloy/auths.yml
 ```
 
-One file, several named blocks. Edit `community` / v3 fields to match the devices. Config and Fleet say `auths = ["public_v2"]` — they never contain the string `public`.
+One file, several named blocks:
+
+`auths = ["public_v2", "campus_v2"]`
 
 ```yaml
 auths:
   public_v2:
+    version: 2
+    community: public
+  campus_v2:
     version: 2
     community: public
   dc_v3:
@@ -33,6 +66,8 @@ auths:
 
 The Cloud token (`GC_OTLP_KEY`) goes in `/etc/default/alloy` (or `/etc/sysconfig/alloy`), not in this file and not in Fleet. How to copy URL / instance ID / token: [grafana-cloud-otlp.md](grafana-cloud-otlp.md).
 
+Compose users: same YAML, path `alloy/auths.yml` next to `compose.yaml` (`snmp-discovery init --out-auths alloy/auths.yml`). The Cloud token stays in `.env`.
+
 ## If your org already has a secret store
 
 Alloy can read the **same YAML shape** from somewhere else. You do not have to use a file.
@@ -43,12 +78,10 @@ Alloy can read the **same YAML shape** from somewhere else. You do not have to u
 | An environment variable | `env("SNMP_AUTHS")` | Whole YAML in one variable |
 | HashiCorp Vault | `remote.vault` | KV v2; many auth methods |
 | Kubernetes | `remote.kubernetes.secret` | In-cluster only |
-| A file in an S3 bucket | `remote.s3` | A YAML object, **not** AWS Secrets Manager |
+| A file in an S3 bucket | `remote.s3` | YAML object in the bucket |
 | An HTTPS URL your team hosts | `remote.http` | Mark the body secret |
 
-There is **no** built-in AWS Secrets Manager hook yet ([alloy#689](https://github.com/grafana/alloy/issues/689)). Typical AWS workarounds: put the YAML in S3, inject it at boot into a file/env, or put Vault in front.
-
-Vault example (only if you use Vault). Fleet still lists `dc_v3`, not the password:
+Vault example (only if you use Vault). Fleet still lists the names, not the passwords:
 
 ```alloy
 remote.vault "snmp" {
@@ -61,8 +94,8 @@ discovery.snmp "fabric" {
   auths = remote.vault.snmp.data["auths"]
   group {
     name  = "dc"
-    cidrs = ["10.20.0.0/16"]
-    auths = ["dc_v3"]
+    cidrs = ["10.20.0.0/16", "10.21.0.0/16"]
+    auths = ["dc_v3", "campus_v2"]
   }
 }
 ```

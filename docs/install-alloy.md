@@ -48,6 +48,7 @@ sudo cp -a /usr/bin/alloy /usr/bin/alloy.dist
 
 docker create --name alloy-extract alloy-network:dev
 sudo docker cp alloy-extract:/bin/alloy /usr/bin/alloy
+sudo docker cp alloy-extract:/usr/bin/snmp-discovery /usr/bin/snmp-discovery
 sudo docker cp alloy-extract:/etc/alloy/snmp-network.yml /etc/alloy/snmp-network.yml
 sudo docker cp alloy-extract:/etc/alloy/fingerprinters.yml /etc/alloy/fingerprinters.yml
 docker rm alloy-extract
@@ -61,7 +62,7 @@ docker run --rm --entrypoint ls alloy-network:dev /etc/alloy
 
 Copy every `*.yml` you see **except** `config.alloy`.
 
-Built on a laptop? `scp` `/usr/bin/alloy` and those two YAML files to the poller, then `sudo install -m 755 alloy /usr/bin/alloy`.
+Built on a laptop? `scp` `alloy`, `snmp-discovery`, and those two YAML files to the poller, then `sudo install -m 755 alloy /usr/bin/alloy` and the same for `snmp-discovery`.
 
 ## 4. Allow unfinished (but needed) components
 
@@ -93,32 +94,32 @@ Redo step 3.
 
 On the poller, open http://127.0.0.1:12345 — Alloy’s **local** status page (component graph). That is not Grafana Cloud.
 
-Then go back to the [README quickstart](../README.md#quickstart) for `auths.yml`, config, and Explore.
+Then go back to the [README quickstart](../README.md#quickstart) for `auths.yml`, config, and dashboard import.
 
-## Optional: Docker Compose on a laptop
+## Optional: Docker Compose
 
-After step 2, in **this** repo (the guide), not inside the `alloy` clone:
+Same network image, as a container instead of systemd. After step 2, in **this** repo (the guide), not inside the `alloy` clone:
 
 ```
 cd /path/to/grafana-network-o11y-guide
 cp .env.sample .env
-cp alloy/auths.example.yml alloy/auths.yml
 cp alloy/config.alloy.sample alloy/config.alloy
 ```
 
-Edit `.env` (Cloud URL / account / token) and the CIDR in `alloy/config.alloy`. Then:
+Write communities / v3 into `alloy/auths.yml` (`snmp-discovery init --out-auths alloy/auths.yml`, or copy `alloy/auths.example.yml`). Edit `.env` (Cloud URL / account / token) and the `cidrs` / `auths` lists in `alloy/config.alloy`. Then:
 
 ```
 docker compose up -d
 ```
 
-Docker’s default bridge often cannot reach a management VLAN. On Linux, set `network_mode: host` in `compose.yaml`, or use a real poller.
+Docker’s default bridge often cannot reach a management VLAN. On Linux, set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
 
 ## Files that matter
 
 | Path | Who creates it |
 |------|----------------|
 | `/usr/bin/alloy` | You, from the Docker build |
+| `/usr/bin/snmp-discovery` | Same build — `snmp-discovery init` writes the first `auths.yml` ([secrets.md](secrets.md)) |
 | `/etc/alloy/snmp-network.yml` | Copied from the build (vendor OIDs) |
 | `/etc/alloy/fingerprinters.yml` | Copied from the build (`sysObjectID` → modules) |
 | `/etc/alloy/auths.yml` | **You** — communities / v3 |

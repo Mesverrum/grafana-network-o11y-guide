@@ -19,7 +19,7 @@ A Linux host on the **management network** (same VLAN or VRF as device SNMP, tra
 
 Point trap / syslog / flow **destinations on the devices** at this poller’s management IP and those ports.
 
-**Grafana Cloud Fleet Management** can push the non-secret part of the config (which CIDRs to scan, which *name* of SNMP credential to use, which ports to listen on). **Communities, SNMPv3 passwords, and the Cloud token never go in Fleet.** Details: [docs/secrets.md](docs/secrets.md).
+**Grafana Cloud Fleet Management** is how you edit that non-secret config from a **central UI** (CIDRs, auth *names*, listen ports) with version history — one poller or many. **Communities, SNMPv3 passwords, and the Cloud token never go in Fleet.** Details: [docs/secrets.md](docs/secrets.md).
 
 ```mermaid
 flowchart LR
@@ -69,28 +69,27 @@ GC_OTLP_KEY=glc_…
 
 Do not open `GC_OTLP_URL` in a browser (it is a push API, not a website).
 
-**3. SNMP credentials on the poller.** Start with a file only root can read:
+**3. SNMP credentials on the poller.** A file only root can read. Easiest first time: `snmp-discovery init` writes `/etc/alloy/auths.yml` (it asks for the community or v3 user, or take flags). Copy the example instead if you prefer to edit YAML by hand. Details: [docs/secrets.md](docs/secrets.md).
 
 ```
-sudo cp alloy/auths.example.yml /etc/alloy/auths.yml
-sudo chmod 600 /etc/alloy/auths.yml
+sudo snmp-discovery init --out-auths /etc/alloy/auths.yml --out-discovery /tmp/discovery.yml
 ```
 
-Edit the community (or v3 user) to match the devices. Each block has a **name** (`public_v2`, `dc_v3`). Config and Fleet refer to that name only. Other options (Vault, and so on): [docs/secrets.md](docs/secrets.md).
+Each block has a **name** (`public_v2`, `dc_v3`). Config and Fleet refer to that name only. Other stores (Vault, and so on): [docs/secrets.md](docs/secrets.md).
 
 **4. Tell Alloy what to scan.** Two ways:
 
-- **Local file (simplest first time):** copy [`alloy/config.alloy.sample`](alloy/config.alloy.sample) to `/etc/alloy/config.alloy`. Change the CIDR:
+- **Local file (simplest first time):** copy [`alloy/config.alloy.sample`](alloy/config.alloy.sample) to `/etc/alloy/config.alloy`. `cidrs` and `auths` are lists — put every prefix and every credential **name** you use:
 
 ```alloy
   group {
     name  = "hq"
-    cidrs = ["10.0.0.0/24"]   // one device: ["192.168.1.1/32"]
-    auths = ["public_v2"]     // must match a name in auths.yml
+    cidrs = ["10.0.0.0/24", "10.0.1.0/24"]           // one box: add "192.168.1.1/32"
+    auths = ["public_v2", "campus_v2"]                // names from auths.yml
   }
 ```
 
-- **Fleet (when you have several pollers):** Grafana Cloud → **Connections → Collector → Fleet Management → add collector**. Paste the snippet it gives you into `/etc/alloy/config.alloy`. Put CIDRs and auth *names* in the Fleet pipeline — never communities. Sample: [`alloy/fleet-pipeline.alloy.sample`](alloy/fleet-pipeline.alloy.sample). More: [docs/fleet.md](docs/fleet.md).
+- **Fleet (central UI + version control):** Grafana Cloud → **Connections → Collector → Fleet Management → add collector**. Paste the snippet it gives you into `/etc/alloy/config.alloy`. Edit CIDRs and auth *names* in the Fleet pipeline from then on — never communities. Sample: [`alloy/fleet-pipeline.alloy.sample`](alloy/fleet-pipeline.alloy.sample). More: [docs/fleet.md](docs/fleet.md). Use this whenever you want Cloud to own the config, including a single poller.
 
 **5. Start the service.**
 
@@ -109,23 +108,22 @@ Logs: `journalctl -u alloy -f`. Local health page (on the poller, not Cloud): ht
 
 On each device, set trap / syslog / flow export to **this host’s management IP** and the ports in the config (samples: traps `11620`, syslog `1514`, NetFlow `2055`, sFlow `6344`).
 
-**6. Confirm data.** In Grafana Cloud, left menu → the compass (**Explore**) → data source **Prometheus** (or **grafanacloud-…prom**). Time range last 15 minutes. Paste:
+**6. Import the dashboards.** While you do this, the first SNMP polls should already be landing in Cloud.
 
-```promql
-count by (device_name, snmp_group) (snmp_CPU)
-```
+In Grafana Cloud: left menu → **Dashboards** → **New** → **Import**. Upload each JSON file in [`dashboards/`](dashboards/) (see [docs/dashboards.md](docs/dashboards.md)). When asked, pick this stack’s Prometheus and Loki data sources.
 
-You should see one series per device after about a minute. More queries: [docs/grafana.md](docs/grafana.md). Import dashboards from `dashboards/` (**Dashboards → New → Import**). If panels are empty: [troubleshooting/bring-up.md](troubleshooting/bring-up.md).
+Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devices and scrapes should start filling in. Empty panels: [troubleshooting/bring-up.md](troubleshooting/bring-up.md). You do not need Explore to finish bring-up.
 
-## Optional: try it in Docker on a laptop
+## Optional: Docker Compose
 
-Only for a lab PC. Build the image first ([install-alloy.md](docs/install-alloy.md) step 2). Docker’s default network often **cannot** reach a campus management VLAN — on Linux add `network_mode: host` in `compose.yaml`, or use a real poller.
+If you prefer containers to systemd, the same image can run under Compose. Build it first ([install-alloy.md](docs/install-alloy.md) step 2). Docker’s default bridge often **cannot** reach a campus management VLAN — on Linux set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
 
 ```
 cp .env.sample .env
-cp alloy/auths.example.yml alloy/auths.yml
 cp alloy/config.alloy.sample alloy/config.alloy
-# edit .env (GC_OTLP_*) and the CIDR in config.alloy
+# secrets: snmp-discovery init --out-auths alloy/auths.yml
+#   (or cp alloy/auths.example.yml alloy/auths.yml and edit)
+# then edit .env (GC_OTLP_*) and the cidrs / auths lists in config.alloy
 docker compose up -d
 ```
 
@@ -135,10 +133,12 @@ docker compose up -d
 - **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)** — where to copy URL, instance ID, and token
 - **[docs/install-alloy.md](docs/install-alloy.md)** — replace the official program with the network build
 - **[docs/architecture.md](docs/architecture.md)** — discovery, poll intervals, naming
+- **[docs/scalability.md](docs/scalability.md)** — when to add a poller, SNMP shards, Cloud cardinality
+- **[docs/availability.md](docs/availability.md)** — what dies with the poller; site split, VIP, why two Alloy is not HA
 - **[docs/fleet.md](docs/fleet.md)** — Fleet vs files on the poller
 - **[docs/secrets.md](docs/secrets.md)** — where communities and tokens live
-- **[docs/dashboards.md](docs/dashboards.md)** — the A0–A4 set
-- **[docs/grafana.md](docs/grafana.md)** — Explore queries to paste
+- **[docs/dashboards.md](docs/dashboards.md)** — import the A0–A4 set (this is how you confirm data)
+- **[docs/grafana.md](docs/grafana.md)** — Explore queries only if a panel stays empty
 - **[troubleshooting/bring-up.md](troubleshooting/bring-up.md)** — first-time failures
 - **[troubleshooting/snmp.md](troubleshooting/snmp.md)** — `snmpget` from the poller
 

@@ -55,9 +55,11 @@ Discovery produces a list: management IP + `device_name` + `snmp_group`. Traps, 
 
 That answers “which router sent this.” Flow *conversations* (client ↔ server) only get a friendly `src_device` / `dst_device` if that IP is also in the SNMP list. Most servers are not. You will see IPs, or reverse-DNS names when that is enabled. That is normal.
 
-## What to query in Grafana
+## What the dashboards query
 
-| Signal | In Explore, use |
+Import the boards in [dashboards.md](dashboards.md). If you need the raw names:
+
+| Signal | Metric / log |
 |--------|-----------------|
 | SNMP | Prometheus: `snmp_CPU`, `snmp_ifHCInOctets`, … filter `job="alloy-snmp"` |
 | Flow | Prometheus: `alloy_network_io_by_flow_bytes{integration="alloy-netflow"}` — wrap in `rate(…[5m])` |
@@ -65,3 +67,7 @@ That answers “which router sent this.” Flow *conversations* (client ↔ serv
 | Syslog | Loki: `{service_name="alloy-syslog"}` |
 
 Paste-ready examples: [grafana.md](grafana.md). Why `rate()` and not “divide by 60”: these are normal increasing counters, not 60-second delta gauges.
+
+## More than one poller
+
+One process per management domain is the normal next step. Same CIDR on two hosts without a shard double-walks every device. UDP (traps / syslog / flow) still aims at one IP. Details: [scalability.md](scalability.md), [availability.md](availability.md).

@@ -2,7 +2,7 @@
 
 [← README](../README.md)
 
-**Idea:** edit CIDRs and listen ports in Grafana Cloud; each poller picks the change up. You still keep SNMP communities and the Cloud token **on the poller**.
+**Idea:** manage Alloy’s non-secret config from a **central Grafana Cloud UI**, with version history, instead of ssh-editing `/etc/alloy/config.alloy` on every change. That is useful for one poller and for many. Each enrolled host pulls the pipeline. You still keep SNMP communities and the Cloud token **on the poller**.
 
 Today the UI is **Connections → Collector → Fleet Management**. (Grafana may fold this into an “Instrumentation Hub” later; the split is the same: names in Cloud, secrets on the host.)
 
@@ -21,8 +21,8 @@ That snippet only tells Alloy *where* to pull config. It is not where you put co
 Keep it small — things you would type in an NMS “add site” form:
 
 - Group name (e.g. `hq`)
-- CIDRs to scan
-- Auth **names** (`public_v2`) — not the community string
+- CIDRs to scan — a list, e.g. `["10.0.0.0/24", "10.0.1.0/24"]`
+- Auth **names** — a list, e.g. `["public_v2", "campus_v2"]`, not the community strings
 - Whether to run hot / cold / topology polls
 - Trap / syslog / flow listen ports
 
@@ -46,3 +46,5 @@ Do not paste `/etc/alloy/snmp-network.yml` (the vendor OID library) into Fleet. 
 Creating or updating a Fleet pipeline needs an access policy with **fleet-management:write**. The token you copied from **Connections → OpenTelemetry** is often metrics/logs/traces write only.
 
 In Grafana Cloud: **Administration** (or **Security**) → **Access policies** → create or edit a policy → enable Fleet Management write → new token. Put that token only in the enroll snippet / poller env — not in the pipeline text.
+
+Many collectors: Fleet is how you **edit** them. It does not shard SNMP or fail over UDP. Split CIDRs per site, or `hashmod` a pool — [scalability.md](scalability.md). A dead poller is [availability.md](availability.md).

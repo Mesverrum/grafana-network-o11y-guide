@@ -2,16 +2,18 @@
 
 [← README](../README.md)
 
-## Import
+## Import (this is how you confirm the install)
+
+Do not start in Explore. Import the boards; the first polls should already be in Cloud by the time you finish.
 
 In Grafana Cloud:
 
 1. Left menu → **Dashboards** → **New** → **Import**
-2. Upload a JSON file from the `dashboards/` folder in this repo
-3. Pick your Prometheus and Loki data sources when asked
-4. Open the dashboard and set the time range (last 1 hour is fine)
+2. Upload each JSON file from [`dashboards/`](../dashboards/README.md) (`a0` … `a4`)
+3. Pick this stack’s Prometheus and Loki data sources when asked (`${datasource}` / `${loki}`)
+4. Open **Device Summary**, then **Health**. Time range **Last 1 hour**.
 
-If JSON is not in the folder yet, use [grafana.md](grafana.md) in **Explore** until the exports land.
+If a panel stays empty after 5–10 minutes, [troubleshooting/bring-up.md](../troubleshooting/bring-up.md). Raw queries are optional: [grafana.md](grafana.md).
 
 | Short name | Title | What it is for |
 |------------|-------|----------------|
@@ -22,6 +24,8 @@ If JSON is not in the folder yet, use [grafana.md](grafana.md) in **Explore** un
 | A4 | Device Details | One device, tabbed (interfaces, routing, …) |
 
 Traps in Loki: `{service_name="alloy-snmptrap"}`. Syslog: `{service_name="alloy-syslog"}`.
+
+The five boards share the Grafana tag `network-o11y`. After import, the **Network O11y** dropdown at the top lists the whole set.
 
 **Tabs:** Device Details is a tabbed dashboard. After you import it, do not “Save as” through old share/export tricks that flatten it. If tabs disappear and you get one long page, import the JSON again.
 

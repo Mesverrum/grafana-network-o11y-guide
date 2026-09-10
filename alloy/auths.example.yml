@@ -3,12 +3,17 @@
 # Library modules stay in the image (/etc/alloy/snmp-network.yml).
 # discovery.snmp and prometheus.exporter.snmp both read this file.
 #
-# Fleet / Hub names blocks only: group { auths = ["public_v2"] }.
+# Fleet / config name the blocks only, and the list can be more than one:
+#   group { auths = ["public_v2", "campus_v2"] }
 # Load the blob with one of: this file, Vault, K8s Secret, S3, HTTP, env.
 # See docs/secrets.md.
 
 auths:
   public_v2:
+    version: 2
+    community: public
+
+  campus_v2:
     version: 2
     community: public
 
