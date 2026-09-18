@@ -1,0 +1,17 @@
+# Optional: overlay a local SNMP library on the public image.
+# Do not commit this file as compose.override.yaml (gitignored).
+#
+#   bash scripts/extract-snmp-library.sh
+#   cp compose.override.example.yaml compose.override.yaml
+#   # edit alloy/library/fingerprinters.yml and/or snmp-network.yml
+#   docker compose up -d --force-recreate
+#
+# Both files must come from the same extract (or the same convert).
+# Changing only fingerprinters.yml is fine if every module= name already
+# exists in the image catalog. Adding a new module name requires both files.
+
+services:
+  alloy:
+    volumes:
+      - ./alloy/library/fingerprinters.yml:/etc/alloy/fingerprinters.yml:ro
+      - ./alloy/library/snmp-network.yml:/etc/alloy/snmp-network.yml:ro

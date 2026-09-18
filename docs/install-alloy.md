@@ -6,7 +6,7 @@ The first-time path is **Docker Compose** on a Linux poller — [README quicksta
 
 `apt install alloy` installs Grafana’s **published** collector. That package cannot run this guide’s SNMP discovery / traps / NetFlow. Do not start there unless you are following [run as a host service](#optional-run-as-a-host-service).
 
-The extra pieces ship in a **public** image: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) (personal GHCR, not `grafana/alloy`). Tags match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases). Fingerprinters and the vendor OID library are **whatever that tag baked in** — not live [snmp-sd](https://github.com/Mesverrum/snmp-sd) `main`.
+The extra pieces ship in a **public** image: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) (personal GHCR, not `grafana/alloy`). Tags match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases). Fingerprinters and the vendor OID library default to **whatever that tag baked in**. Overlay local copies without compiling — [below](#optional-overlay-fingerprinters--modules).
 
 | Path | When to use |
 |------|-------------|
@@ -20,7 +20,7 @@ Source branch: [Mesverrum/alloy](https://github.com/Mesverrum/alloy) **`network-
 
 `compose.yaml` pulls `ALLOY_IMAGE` (default `ghcr.io/mesverrum/alloy-network:v0.1.0`), sets `--stability.level=experimental`, and uses `network_mode: host` so SNMP and UDP listeners share the poller’s interfaces.
 
-You mount two files; everything else (binary, `snmp-network.yml`, `fingerprinters.yml`) stays inside the image:
+You mount two files by default; the SNMP library stays inside the image until you [overlay it](#optional-overlay-fingerprinters--modules):
 
 | Host path | Inside the container |
 |-----------|----------------------|
@@ -30,6 +30,28 @@ You mount two files; everything else (binary, `snmp-network.yml`, `fingerprinter
 | `.env` | `GC_OTLP_*` |
 
 Copy `config.alloy.sample` **before** `docker compose up`. If that path is missing, Docker creates a *directory* named `config.alloy` and Alloy will not start.
+
+## Optional: overlay fingerprinters / modules
+
+Keep the pulled image. Copy the baked catalog out, edit it, bind-mount it back. `discovery.snmp` already reads `/etc/alloy/fingerprinters.yml` and `/etc/alloy/snmp-network.yml` — you do not change River.
+
+```
+bash scripts/extract-snmp-library.sh
+cp compose.override.example.yaml compose.override.yaml
+# edit alloy/library/fingerprinters.yml
+# and alloy/library/snmp-network.yml if you add or rename modules
+docker compose up -d --force-recreate
+```
+
+Rules:
+
+- **Same convert.** Fingerprinter `module=` names must exist in `snmp-network.yml`. Mixing a new map with the image catalog drops those modules (walk looks empty).
+- **Fingerprinters only** is enough when you remap sysObjectIDs onto modules that are already in the image.
+- **Both files** when you add a vendor module or a new `module=` name.
+- `compose.override.yaml` is gitignored. Remove it (or the volume lines) to go back to the image library.
+- Host service: `docker cp` the same two files onto `/etc/alloy/` instead of Compose override.
+
+This is how early testers pick up a profile tweak without compiling Alloy. A new matcher *type* in snmp-sd still needs a new image.
 
 ## Optional: compile from source
 

@@ -15,7 +15,7 @@ This is **not** an official Grafana product, and there is **no support SLA**. Is
 | First pass = SNMP + **Health** + **Device Summary** | Flow / trap / syslog boards filling in with no device export |
 | Local `alloy/config.alloy` the first time | Fleet on day one — the OpenTelemetry token usually **cannot** write Fleet |
 | Communities / v3 in `alloy/auths.yml`, Cloud token in `.env` | Passwords pasted into Fleet |
-| Fingerprinters + vendor OIDs **baked into the image tag** you pulled | Live `snmp-sd` HEAD or a newer library than `v0.1.0` |
+| Fingerprinters + vendor OIDs from the image, or a [local overlay](docs/install-alloy.md#optional-overlay-fingerprinters--modules) | Mixing a new `fingerprinters.yml` with an old `snmp-network.yml` |
 | Device Details util / error / memory % after you [import recording rules](docs/recording-rules.md) | Those panels lighting up from SNMP scrape alone |
 
 Point trap / syslog / flow destinations at this poller only when you want those boards. SNMP-only is a valid first pass.
@@ -131,7 +131,7 @@ Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devi
 
 - **[docs/glossary.md](docs/glossary.md)** — Alloy, Fleet, Explore, PromQL, …
 - **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)** — where to copy URL, instance ID, and token
-- **[docs/install-alloy.md](docs/install-alloy.md)** — image tags, compile, or run as a host systemd service
+- **[docs/install-alloy.md](docs/install-alloy.md)** — image tags, overlay fingerprinters, compile, or host systemd
 - **[docs/architecture.md](docs/architecture.md)** — discovery, poll intervals, naming
 - **[docs/scalability.md](docs/scalability.md)** — when to add a poller, SNMP shards, Cloud cardinality
 - **[docs/availability.md](docs/availability.md)** — what dies with the poller; site split, VIP, why two Alloy is not HA
