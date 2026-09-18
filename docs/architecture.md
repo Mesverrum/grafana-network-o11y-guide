@@ -33,7 +33,7 @@ flowchart TB
 
 ## What must be installed
 
-The official Linux package gives you the service. This guide’s discovery / trap / flow config needs the **network** image on top of that. Follow [install-alloy.md](install-alloy.md) (`docker pull`, no compile).
+The official Linux package gives you the service. This guide’s discovery / trap / flow config needs the **network** build on top of that. Follow [install-alloy.md](install-alloy.md): pull the public `ghcr.io/mesverrum/alloy-network` image, or compile from `network-snmp`.
 
 The large SNMP “which OIDs for which vendor” library is **inside that build** (`/etc/alloy/snmp-network.yml`). Do not paste it into Fleet.
 

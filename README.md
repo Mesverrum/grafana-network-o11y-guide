@@ -4,7 +4,12 @@ Stand up **network observability in Grafana Cloud** with one collector on a Linu
 
 This is written for **network engineers**. You do not need a Grafana SE, and you do not need to be a software developer. If a word is new, see [docs/glossary.md](docs/glossary.md).
 
-This is **not** an official Grafana product repo. The extra SNMP / trap / flow pieces are not in the public Alloy package yet. Install the prebuilt image — [docs/install-alloy.md](docs/install-alloy.md) (`ghcr.io/mesverrum/alloy-network`). You do not need to compile.
+This is **not** an official Grafana product repo. The extra SNMP / trap / flow pieces are not in Grafana’s `apt`/`yum` Alloy package yet. Two ways to get them:
+
+- **Pull** the public image [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) — no GitHub login, no compile.
+- **Compile** from [Mesverrum/alloy](https://github.com/Mesverrum/alloy) `network-snmp` if you want to rebuild it yourself.
+
+Steps for both: [docs/install-alloy.md](docs/install-alloy.md).
 
 ## What you are building
 
@@ -35,7 +40,7 @@ If Alloy polls `10.1.1.5` as `core-01`, traps and flows from `10.1.1.5` get the 
 
 - A Linux host that can **ping and `snmpget`** the devices. If that fails from the host, Alloy will fail too.
 - A Grafana Cloud login and a **stack** you can open. How to copy the three push settings (URL, numeric instance ID, `glc_` token): **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**. You will not find these in a welcome email.
-- **Docker** on the poller (or a laptop) to **pull** the network Alloy image. You copy three files onto the poller. You do not need to write Go or compile.
+- **Docker** on the poller (or a laptop): used to **pull** the public image, or to **compile** if you choose that path. You copy the program onto the poller. You do not need to write Go.
 
 ## Quickstart
 
@@ -51,7 +56,7 @@ sudo apt-get update && sudo apt-get install alloy
 
 Other distros: [Install Alloy on Linux](https://grafana.com/docs/alloy/latest/set-up/install/linux/).
 
-That package is the **service and file layout**. It cannot run this guide’s SNMP discovery / trap / flow samples yet. Next: **[docs/install-alloy.md](docs/install-alloy.md)** (`docker pull ghcr.io/mesverrum/alloy-network:v0.1.0`, replace `/usr/bin/alloy`, copy the SNMP library). Then in `/etc/default/alloy` (RHEL: `/etc/sysconfig/alloy`):
+That package is the **service and file layout**. It cannot run this guide’s SNMP discovery / trap / flow samples yet. Next: **[docs/install-alloy.md](docs/install-alloy.md)** — pull `ghcr.io/mesverrum/alloy-network:v0.1.0` (or compile), replace `/usr/bin/alloy`, copy the SNMP library. Then in `/etc/default/alloy` (RHEL: `/etc/sysconfig/alloy`):
 
 ```
 CUSTOM_ARGS="--stability.level=experimental"
@@ -131,7 +136,7 @@ docker compose up -d
 
 - **[docs/glossary.md](docs/glossary.md)** — Alloy, Fleet, Explore, PromQL, …
 - **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)** — where to copy URL, instance ID, and token
-- **[docs/install-alloy.md](docs/install-alloy.md)** — replace the official program with the network build
+- **[docs/install-alloy.md](docs/install-alloy.md)** — pull the public image, or compile; replace the official program
 - **[docs/architecture.md](docs/architecture.md)** — discovery, poll intervals, naming
 - **[docs/scalability.md](docs/scalability.md)** — when to add a poller, SNMP shards, Cloud cardinality
 - **[docs/availability.md](docs/availability.md)** — what dies with the poller; site split, VIP, why two Alloy is not HA

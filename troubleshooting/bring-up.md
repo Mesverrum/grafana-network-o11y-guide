@@ -8,7 +8,7 @@ Work top to bottom. Confirm on the imported dashboards (Device Summary, Health) 
 
 You are still running the official package. Follow [install-alloy.md](../docs/install-alloy.md): replace `/usr/bin/alloy` and set `CUSTOM_ARGS="--stability.level=experimental"` in `/etc/default/alloy`. Then `sudo systemctl restart alloy`.
 
-On a laptop Compose setup: you never built `alloy-network:dev`, or `.env` has the wrong `ALLOY_IMAGE`.
+On a laptop Compose setup: `.env` has the wrong `ALLOY_IMAGE`, or you never pulled `ghcr.io/mesverrum/alloy-network:v0.1.0` (or compiled `alloy-network:dev`).
 
 ### 2. Grafana shows 401 / 404, or nothing arrives
 

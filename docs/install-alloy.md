@@ -10,9 +10,14 @@ This guide’s config uses three pieces that are not in that package yet:
 - Receive SNMP traps
 - Receive NetFlow / IPFIX / sFlow
 
-Those ship as a **prebuilt image**: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network). You pull it, copy three files onto the poller, and `systemctl` keeps working. You do **not** need Go.
+Those ship in a **public** image: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network). Most people **pull** it (no GitHub login). You can **compile** the same bits from source instead. Either way you copy three files onto the poller and `systemctl` keeps working. You do **not** need to write Go.
 
-Source (if you want to read or rebuild it): [Mesverrum/alloy](https://github.com/Mesverrum/alloy) branch **`network-snmp`**.
+| Path | When to use | Time |
+|------|-------------|------|
+| [Pull the image](#2-pull-the-network-image-no-compile) | Default. Public package, anonymous `docker pull`. | Minutes |
+| [Compile from source](#optional-compile-from-source) | You want to rebuild, or you do not trust a prebuilt binary. | First run 15–40 min |
+
+Source: [Mesverrum/alloy](https://github.com/Mesverrum/alloy) branch **`network-snmp`**. Tags on the image match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases).
 
 ## 1. Official Alloy service (file layout)
 
@@ -37,7 +42,7 @@ export ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0
 docker pull "$ALLOY_IMAGE"
 ```
 
-If the pull asks you to log in, the package is still private — use the [compile fallback](#fallback-compile-from-source) or wait for the public package. Image tags match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases).
+No `docker login` is required. If pull fails, check you can reach `ghcr.io`, then use [compile](#optional-compile-from-source).
 
 Compose users: set `ALLOY_IMAGE` in `.env` to that same tag and skip the copy steps below (`docker compose up -d`).
 
@@ -98,9 +103,20 @@ On the poller, open http://127.0.0.1:12345 — Alloy’s **local** status page (
 
 Then go back to the [README quickstart](../README.md#quickstart) for `auths.yml`, config, and dashboard import.
 
-## Fallback: compile from source
+## Optional: compile from source
 
-Only if you cannot pull the image. First run downloads several GB and often takes **15–40 minutes**.
+Skip this if you pulled the public image. First compile downloads several GB and often takes **15–40 minutes**.
+
+**From this repo** (clones `network-snmp` if you do not already have it next door):
+
+```
+git clone https://github.com/Mesverrum/grafana-network-o11y-guide.git
+cd grafana-network-o11y-guide
+export ALLOY_IMAGE=alloy-network:dev
+bash scripts/build-network-image.sh
+```
+
+**From the Alloy fork** (same result, longer Docker context):
 
 ```
 git clone --branch network-snmp --single-branch https://github.com/Mesverrum/alloy.git
