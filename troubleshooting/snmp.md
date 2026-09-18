@@ -28,3 +28,5 @@ snmpget -v3 -l authPriv -u netops -a SHA-256 -A 'auth-pass' -x AES -X 'priv-pass
 ## Config names
 
 In `alloy/config.alloy` (or Fleet / `/etc/alloy/config.alloy`), every name in `auths = ["public_v2", "campus_v2"]` must be a key under `auths:` in `alloy/auths.yml`. A typo here looks like “discovery is broken” but is just a name mismatch.
+
+Device looks like generic Linux (CPU/IF-MIB only) even though it is a named appliance: sysObjectID did not fingerprint. Pin the management IP — [overrides.md](../docs/overrides.md). The IP must already be in a `cidrs` prefix.

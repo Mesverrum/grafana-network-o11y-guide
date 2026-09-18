@@ -26,6 +26,7 @@ Written for network engineers. Skip any row you already know.
 | **Auth name** | A label such as `public_v2`. The community or v3 secret lives on the poller under that name. A group can list several: `auths = ["public_v2", "campus_v2"]`. |
 | **CIDR** | Prefix to scan. A group takes a list: `cidrs = ["10.0.0.0/24", "10.0.1.0/24"]`. One device is `"192.168.1.1/32"` in that same list. |
 | **Discovery** | Alloy SNMP-walks each prefix in `cidrs`, reads `sysObjectID`, and decides which OIDs to poll. |
+| **Override / pin** | Force modules (or ignore) for one **management IP** when sysObjectID is generic. Same job as ktranslate’s manual profile. [overrides.md](overrides.md). |
 | **Hot / cold / topology** | How often Alloy polls. Hot ≈ 60s (CPU, interface counters). Cold ≈ 5 minutes (names, errors). Topology ≈ 15 minutes (LLDP / BGP). Same idea as fast vs slow NMS polling. |
 | **`device_name`** | Label meaning “which network device.” |
 | **`snmp_group`** | Label for the discovery group you named (`hq`, `dc`) — a site or credential bucket, not your CMDB. |

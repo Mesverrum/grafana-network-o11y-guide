@@ -27,6 +27,7 @@ Keep it small — things you would type in an NMS “add site” form:
 - Auth **names** — a list, e.g. `["public_v2", "campus_v2"]`, not the community strings
 - Whether to run hot / cold polls (`tiers = ["hot", "cold"]` in the sample)
 - Trap / syslog / flow listen ports
+- Per-IP **overrides** (generic sysObjectID / reskinned Linux) — [overrides.md](overrides.md)
 
 Sample you can paste and then edit: [`alloy/fleet-pipeline.alloy.sample`](../alloy/fleet-pipeline.alloy.sample). It matches the local file: SNMP hot+cold, Alloy self-scrape (Health), traps `:11620`, syslog `:1514`, NetFlow `:2055`, sFlow `:6344`.
 

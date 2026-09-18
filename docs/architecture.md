@@ -49,6 +49,8 @@ After discovery sees a `sysObjectID`, it assigns vendor modules. Polling is spli
 
 `snmp_group` is the **group name you typed** in config (`hq`, `branch`). Use it as a site or credential bucket. Put CMDB site / role in NetBox or similar, not as a second Prometheus label unless you have a reason.
 
+Reskinned Linux appliances often share a generic sysObjectID. Fingerprinting cannot tell them apart — pin that management IP with an `override` block (ktranslate’s “force this profile”). See [overrides.md](overrides.md).
+
 ## Device names on traps, syslog, and flow
 
 Discovery produces a list: management IP + `device_name` + `snmp_group`. Traps, syslog, and flow use that same list. A packet from a polled IP gets the same name as the SNMP series.

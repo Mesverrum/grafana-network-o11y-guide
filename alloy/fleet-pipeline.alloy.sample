@@ -30,6 +30,14 @@ discovery.snmp "fabric" {
     cidrs = ["10.10.0.0/24"]
     auths = ["public_v2", "campus_v2"]
   }
+
+  // Generic sysObjectID (reskinned Linux): pin by IP. docs/overrides.md
+  // override {
+  //   address     = "10.20.0.15"
+  //   name        = "edge-waf-01"
+  //   module_hot  = "if_mib,my_appliance"
+  //   module_cold = "if_mib_meta,ip_addr,my_appliance_ext"
+  // }
 }
 
 discovery.relabel "snmp_hot" {

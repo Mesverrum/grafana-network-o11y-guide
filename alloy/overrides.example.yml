@@ -1,0 +1,13 @@
+# Copy to overrides.yml (gitignored) and set overrides_path on discovery.snmp.
+# See docs/overrides.md. Key is SNMP management IP, not sysObjectID.
+#
+# overrides:
+#   - address: 10.20.0.15
+#     name: edge-waf-01
+#     auth: public_v2
+#     module_hot: if_mib,my_appliance
+#     module_cold: if_mib_meta,ip_addr,my_appliance_ext
+#   - address: 10.20.0.16
+#     ignore: true
+
+overrides: []

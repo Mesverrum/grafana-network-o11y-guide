@@ -53,6 +53,8 @@ Rules:
 
 This is how early testers pick up a profile tweak without compiling Alloy. A new matcher *type* in snmp-sd still needs a new image.
 
+A unique sysObjectID belongs in `fingerprinters.yml`. A **generic** Linux OID (reskinned appliance) does not — pin that IP instead: [overrides.md](overrides.md).
+
 ## Optional: compile from source
 
 Skip this if you pulled the public image. First compile downloads several GB and often takes **15–40 minutes**. Then set `ALLOY_IMAGE=alloy-network:dev` in `.env` and use the same Compose quickstart.

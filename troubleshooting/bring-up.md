@@ -28,6 +28,7 @@ After editing `.env`: `docker compose up -d --force-recreate`.
 - `alloy/auths.yml` missing (Compose mount is empty or a directory)
 - Config says `auths = ["public_v2", "campus_v2"]` but those names are missing as keys in the file
 - Community / v3 on the device does not match the file — prove it with [snmp.md](snmp.md)
+- Device is there but only generic Linux / IF-MIB: sysObjectID did not fingerprint. Pin the IP — [overrides.md](../docs/overrides.md).
 
 ### 4. `snmpget` from the poller fails
 

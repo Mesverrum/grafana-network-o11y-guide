@@ -133,6 +133,7 @@ Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devi
 - **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)** — where to copy URL, instance ID, and token
 - **[docs/install-alloy.md](docs/install-alloy.md)** — image tags, overlay fingerprinters, compile, or host systemd
 - **[docs/architecture.md](docs/architecture.md)** — discovery, poll intervals, naming
+- **[docs/overrides.md](docs/overrides.md)** — pin a reskinned Linux / generic sysObjectID to modules (ktranslate-style)
 - **[docs/scalability.md](docs/scalability.md)** — when to add a poller, SNMP shards, Cloud cardinality
 - **[docs/availability.md](docs/availability.md)** — what dies with the poller; site split, VIP, why two Alloy is not HA
 - **[docs/fleet.md](docs/fleet.md)** — Fleet vs files on the poller

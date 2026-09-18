@@ -33,6 +33,21 @@ discovery.snmp "fabric" {
     cidrs = ["10.10.0.0/24"]
     auths = ["public_v2", "campus_v2"]
   }
+
+  // Reskinned Linux / generic sysObjectID: pin by management IP.
+  // The address must already be in a cidrs list (or add "10.20.0.15/32").
+  // Module names must exist in snmp-network.yml. Docs: docs/overrides.md
+  // override {
+  //   address     = "10.20.0.15"
+  //   name        = "edge-waf-01"
+  //   module_hot  = "if_mib,my_appliance"
+  //   module_cold = "if_mib_meta,ip_addr,my_appliance_ext"
+  // }
+  // override {
+  //   address = "10.20.0.16"
+  //   ignore  = true
+  // }
+  // Many pins: overrides_path = "/etc/alloy/overrides.yml" (mount the file).
 }
 
 discovery.relabel "snmp_hot" {

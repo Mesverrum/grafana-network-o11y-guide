@@ -3,6 +3,7 @@ alloy/config.alloy
 alloy/auths.yml
 alloy/library/fingerprinters.yml
 alloy/library/snmp-network.yml
+alloy/overrides.yml
 compose.override.yaml
 
 # OS and editor
