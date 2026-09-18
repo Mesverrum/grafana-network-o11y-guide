@@ -4,12 +4,26 @@ Stand up **network observability in Grafana Cloud** with one collector on a Linu
 
 This is written for **network engineers**. You do not need a Grafana SE, and you do not need to be a software developer. If a word is new, see [docs/glossary.md](docs/glossary.md).
 
-This is **not** an official Grafana product repo. The extra SNMP / trap / flow pieces are not in Grafana’s `apt`/`yum` Alloy package yet. Two ways to get them:
+This is **not** an official Grafana product, and there is **no support SLA**. Issues and PRs here, or the contact at the bottom. The extra SNMP / trap / flow pieces are not in Grafana’s `apt`/`yum` Alloy package yet. Two ways to get them:
 
-- **Pull** the public image [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) — no GitHub login, no compile.
+- **Pull** the public image [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) — no GitHub login, no compile. The image lives under a personal GHCR namespace, not `grafana/alloy`.
 - **Compile** from [Mesverrum/alloy](https://github.com/Mesverrum/alloy) `network-snmp` if you want to rebuild it yourself.
 
-Steps for both: [docs/install-alloy.md](docs/install-alloy.md).
+Steps for both: [docs/install-alloy.md](docs/install-alloy.md). `apt install alloy` only gives you the Linux **service**. You still replace `/usr/bin/alloy` and set `--stability.level=experimental`.
+
+## Read this before you start
+
+| Expect this | Not this |
+|-------------|----------|
+| **Your** Grafana Cloud stack (URL, instance ID, `glc_` token with **metrics:write** and **logs:write**) | A shared demo stack, or the dashboard URL as `GC_OTLP_URL` |
+| A Linux poller that can **ping and `snmpget`** the CIDR | Alloy working when `snmpget` from that host already fails |
+| First pass = SNMP + **Health** + **Device Summary** | Flow / trap / syslog boards filling in with no device export |
+| Local `/etc/alloy/config.alloy` the first time | Fleet on day one — the OpenTelemetry token usually **cannot** write Fleet |
+| Communities / v3 / `glc_` **on the poller** (`auths.yml`, `/etc/default/alloy`) | Passwords pasted into Fleet |
+| Fingerprinters + vendor OIDs **baked into the image tag** you pulled | Live `snmp-sd` HEAD or a newer library than `v0.1.0` |
+| Device Details util / error / memory % after you [import recording rules](docs/recording-rules.md) | Those panels lighting up from SNMP scrape alone |
+
+Point trap / syslog / flow destinations at this poller only when you want those boards. SNMP-only is a valid first pass.
 
 ## What you are building
 
@@ -22,9 +36,7 @@ A Linux host on the **management network** (same VLAN or VRF as device SNMP, tra
 | Syslog | Listens (sample uses UDP 1514) | Logs `{service_name="alloy-syslog"}` |
 | NetFlow / IPFIX / sFlow | Listens (2055 / 6344) | Flow metrics (`rate(…alloy_network_io_by_flow_bytes…)`) |
 
-Point trap / syslog / flow **destinations on the devices** at this poller’s management IP and those ports.
-
-**Grafana Cloud Fleet Management** is how you edit that non-secret config from a **central UI** (CIDRs, auth *names*, listen ports) with version history — one poller or many. **Communities, SNMPv3 passwords, and the Cloud token never go in Fleet.** Details: [docs/secrets.md](docs/secrets.md).
+When you want those last three rows, point device destinations at this poller’s management IP and the sample ports. **Grafana Cloud Fleet Management** is optional later: edit CIDRs and auth *names* from a central UI. **Communities, SNMPv3 passwords, and the Cloud token never go in Fleet.** Details: [docs/secrets.md](docs/secrets.md).
 
 ```mermaid
 flowchart LR
@@ -39,7 +51,7 @@ If Alloy polls `10.1.1.5` as `core-01`, traps and flows from `10.1.1.5` get the 
 ## Prerequisites
 
 - A Linux host that can **ping and `snmpget`** the devices. If that fails from the host, Alloy will fail too.
-- A Grafana Cloud login and a **stack** you can open. How to copy the three push settings (URL, numeric instance ID, `glc_` token): **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**. You will not find these in a welcome email.
+- A Grafana Cloud login and **your** stack (not a shared demo). How to copy the three push settings (URL, numeric instance ID, `glc_` token with metrics + logs write): **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**. You will not find these in a welcome email.
 - **Docker** on the poller (or a laptop): used to **pull** the public image, or to **compile** if you choose that path. You copy the program onto the poller. You do not need to write Go.
 
 ## Quickstart
@@ -94,7 +106,7 @@ Each block has a **name** (`public_v2`, `dc_v3`). Config and Fleet refer to that
   }
 ```
 
-- **Fleet (central UI + version control):** Grafana Cloud → **Connections → Collector → Fleet Management → add collector**. Paste the snippet it gives you into `/etc/alloy/config.alloy`. Edit CIDRs and auth *names* in the Fleet pipeline from then on — never communities. Sample: [`alloy/fleet-pipeline.alloy.sample`](alloy/fleet-pipeline.alloy.sample). More: [docs/fleet.md](docs/fleet.md). Use this whenever you want Cloud to own the config, including a single poller.
+- **Fleet (later, optional):** Grafana Cloud → **Connections → Collector → Fleet Management → add collector**. Skip this on the first install — the OpenTelemetry `glc_` token usually cannot create a pipeline. You need a separate access policy with **fleet-management:write**. Then paste the enroll snippet and edit CIDRs / auth *names* in Fleet — never communities. Sample: [`alloy/fleet-pipeline.alloy.sample`](alloy/fleet-pipeline.alloy.sample). More: [docs/fleet.md](docs/fleet.md).
 
 **5. Start the service.**
 
@@ -111,13 +123,13 @@ sudo systemctl reload alloy
 
 Logs: `journalctl -u alloy -f`. Local health page (on the poller, not Cloud): http://127.0.0.1:12345
 
-On each device, set trap / syslog / flow export to **this host’s management IP** and the ports in the config (samples: traps `11620`, syslog `1514`, NetFlow `2055`, sFlow `6344`).
+On each device, set trap / syslog / flow export to **this host’s management IP** and the ports in the config (samples: traps `11620`, syslog `1514`, NetFlow `2055`, sFlow `6344`) — only if you want those boards. Until a device exports, Flow / trap / syslog panels stay empty; that is expected.
 
 **6. Import the dashboards.** While you do this, the first SNMP polls should already be landing in Cloud.
 
 In Grafana Cloud: left menu → **Dashboards** → **New** → **Import**. Upload each JSON file in [`dashboards/`](dashboards/) (see [docs/dashboards.md](docs/dashboards.md)). When asked, pick this stack’s Prometheus and Loki data sources.
 
-Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devices, discovery counts, and scrapes should start filling in. Interface util / error % on Device Details need [recording rules](docs/recording-rules.md). Empty panels: [troubleshooting/bring-up.md](troubleshooting/bring-up.md). You do not need Explore to finish bring-up.
+Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devices, discovery counts, and scrapes should start filling in. Then import [recording rules](docs/recording-rules.md) so Device Details util / error / memory % can fill. Empty panels: [troubleshooting/bring-up.md](troubleshooting/bring-up.md). You do not need Explore to finish bring-up.
 
 ## Optional: Docker Compose
 
@@ -143,7 +155,7 @@ docker compose up -d
 - **[docs/fleet.md](docs/fleet.md)** — Fleet vs files on the poller
 - **[docs/secrets.md](docs/secrets.md)** — where communities and tokens live
 - **[docs/dashboards.md](docs/dashboards.md)** — import the A0–A4 set (this is how you confirm data)
-- **[docs/recording-rules.md](docs/recording-rules.md)** — optional Cloud rules for interface util / error %
+- **[docs/recording-rules.md](docs/recording-rules.md)** — import Cloud rules so Device Details util / error / memory % fill
 - **[docs/grafana.md](docs/grafana.md)** — Explore queries only if a panel stays empty
 - **[troubleshooting/bring-up.md](troubleshooting/bring-up.md)** — first-time failures
 - **[troubleshooting/snmp.md](troubleshooting/snmp.md)** — `snmpget` from the poller

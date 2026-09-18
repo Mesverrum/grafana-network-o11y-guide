@@ -13,15 +13,15 @@ In Grafana Cloud:
 3. Pick this stack’s Prometheus and Loki data sources when asked (`${datasource}` / `${loki}`)
 4. Open **Device Summary**, then **Health**. Time range **Last 1 hour**.
 
-If a panel stays empty after 5–10 minutes, [troubleshooting/bring-up.md](../troubleshooting/bring-up.md). Interface util / error % also need [recording rules](recording-rules.md). Raw queries are optional: [grafana.md](grafana.md).
+If a panel stays empty after 5–10 minutes, [troubleshooting/bring-up.md](../troubleshooting/bring-up.md). Raw queries are optional: [grafana.md](grafana.md).
 
-| Short name | Title | What it is for |
-|------------|-------|----------------|
-| A0 | Architecture | Picture of the collector path |
-| A1 | Health | Is Alloy scraping / receiving flow and events? |
-| A2 | Flow Summary | Conversations and rates |
-| A3 | Device Summary | All devices: CPU, memory, BGP, alerts |
-| A4 | Device Details | One device, tabbed (interfaces, routing, …) |
+| Short name | Title | What should fill on a first SNMP-only pass |
+|------------|-------|--------------------------------------------|
+| A0 | Architecture | Text only — no live data |
+| A1 | Health | Discovery counts and SNMP scrapes (needs the sample self-scrape). Flow / trap / syslog rows stay at zero until a device exports. |
+| A2 | Flow Summary | Empty until a device sends NetFlow `:2055` or sFlow `:6344` |
+| A3 | Device Summary | Device list / CPU. Memory % and some interface stats need [recording rules](recording-rules.md). |
+| A4 | Device Details | Identity + raw counters. Util / error / memory % need [recording rules](recording-rules.md). |
 
 Traps in Loki: `{service_name="alloy-snmptrap"}`. Syslog: `{service_name="alloy-syslog"}`.
 

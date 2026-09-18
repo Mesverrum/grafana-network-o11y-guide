@@ -1,6 +1,6 @@
 # Dashboard JSON
 
-This is the bring-up check. In Grafana Cloud: **Dashboards → New → Import** → upload each file from this folder. Choose your Prometheus and Loki data sources. Open Device Summary and Health; data should already be arriving.
+This is the bring-up check. In Grafana Cloud: **Dashboards → New → Import** → upload each file from this folder. Choose **this stack’s** Prometheus and Loki data sources. Open Device Summary and Health. SNMP should already be arriving; Flow / traps / syslog stay empty until a device exports. Util / error / memory % need [recording rules](../docs/recording-rules.md).
 
 | File | Title |
 |------|-------|

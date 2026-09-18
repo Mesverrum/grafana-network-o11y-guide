@@ -4,6 +4,8 @@
 
 **Idea:** manage Alloy’s non-secret config from a **central Grafana Cloud UI**, with version history, instead of ssh-editing `/etc/alloy/config.alloy` on every change. That is useful for one poller and for many. Each enrolled host pulls the pipeline. You still keep SNMP communities and the Cloud token **on the poller**.
 
+**Skip Fleet on the first install.** Copy [`alloy/config.alloy.sample`](../alloy/config.alloy.sample) to the poller, get SNMP on **Health** / **Device Summary**, then come back. The `glc_` token from **OpenTelemetry → Configure** is almost always metrics/logs/traces write only — it cannot create a Fleet pipeline.
+
 Today the UI is **Connections → Collector → Fleet Management**. (Grafana may fold this into an “Instrumentation Hub” later; the split is the same: names in Cloud, secrets on the host.)
 
 ## Enroll a poller

@@ -2,7 +2,7 @@
 
 [← README](../README.md)
 
-**Grafana Fleet Management cannot store secrets.** That is a product limit, not a style choice. Anyone who can open the pipeline can read the text. Put credentials on the poller. Fleet only stores **names** like `public_v2`.
+**Grafana Fleet Management cannot store secrets.** That is a product limit, not a style choice. Anyone who can open the pipeline can read the text. Put credentials on the poller. Fleet only stores **names** like `public_v2`. The OpenTelemetry `glc_` token stays in `/etc/default/alloy` with the communities — never in Fleet and never in this git repo.
 
 Official Alloy list of secret sources: [Secrets and credentials](https://grafana.com/docs/alloy/latest/access_permissions/).
 

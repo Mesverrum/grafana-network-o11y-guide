@@ -19,6 +19,8 @@ Those ship in a **public** image: [`ghcr.io/mesverrum/alloy-network`](https://gi
 
 Source: [Mesverrum/alloy](https://github.com/Mesverrum/alloy) branch **`network-snmp`**. Tags on the image match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases).
 
+The image is `ghcr.io/mesverrum/alloy-network` (a personal GHCR package), not Grafana’s published `grafana/alloy`. Fingerprinters and the vendor OID library are **whatever that tag baked in** — not live [snmp-sd](https://github.com/Mesverrum/snmp-sd) `main`. Compile from current `network-snmp` if you need a newer library.
+
 ## 1. Official Alloy service (file layout)
 
 Debian / Ubuntu — skip this if `systemctl status alloy` already works:

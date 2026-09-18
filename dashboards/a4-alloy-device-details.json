@@ -9164,7 +9164,7 @@
         "spec": {
           "id": 338,
           "title": "Trap Types (range)",
-          "description": "SNMP traps for this device grouped by trap_oid label. IF-MIB: 1.3.6.1.6.3.1.1.5.3=linkDown, .5.4=linkUp. MIB names are not resolving on this lab image yet.",
+          "description": "SNMP traps for this device grouped by trap_oid label. IF-MIB: 1.3.6.1.6.3.1.1.5.3=linkDown, .5.4=linkUp. Empty until a device sends traps to the sample listen port (:11620).",
           "links": [],
           "data": {
             "kind": "QueryGroup",

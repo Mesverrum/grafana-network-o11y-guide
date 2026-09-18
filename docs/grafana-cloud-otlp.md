@@ -4,6 +4,8 @@
 
 Alloy needs three values to push data. Grafana does not email them. You copy them from the Cloud website after you can log in.
 
+Use **your** stack. Do not reuse someone else’s `GC_OTLP_*` or a shared demo. URL, instance ID, and token must all come from the same stack you will open dashboards on. The OpenTelemetry token writes metrics and logs; it does **not** import dashboards, recording rules, or Fleet pipelines.
+
 | This guide’s name | What it looks like | What Grafana calls it |
 |-------------------|--------------------|------------------------|
 | `GC_OTLP_URL` | `https://otlp-gateway-prod-….grafana.net/otlp` | **OTLP endpoint** |

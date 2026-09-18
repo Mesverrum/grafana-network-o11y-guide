@@ -1,6 +1,8 @@
 # Grafana-managed recording rules for A3 / A4 utilization and error panels.
-# Import: Grafana Cloud → Alerting → Recording rules (Prometheus / Mimir).
-# See docs/recording-rules.md.
+# Import: docs/recording-rules.md
+#   UI: Alerting → Alert rules → More → Import to Grafana-managed rules
+#       → Prometheus YAML file (this file).
+#   or: python3 scripts/import-recording-rules.py
 #
 # Device Summary and Health work without these. Interface bps / util / error %
 # on Device Details need this file.
