@@ -17,15 +17,15 @@ There is no Alloy “cluster” that shares SNMP walks and UDP sockets for you. 
 
 SNMP is pull: miss a 60s hot interval and you get a gap, then it resumes. Traps and flow are **push**: the packet is not stored on the device for Alloy. A 10-minute outage is a 10-minute hole in Loki / flow metrics.
 
-## Default: one poller, systemd
+## Default: one poller, Docker Compose
 
-The quickstart is a single host. Make that process boring:
+The quickstart is a single Linux host. Make that process boring:
 
-- `sudo systemctl enable --now alloy` so it starts on boot.
-- Disk for `/var/lib/alloy` (discovery state) and `/etc/alloy` (config + `auths.yml`).
+- `restart: unless-stopped` in `compose.yaml` so it comes back after reboot.
+- Docker volume `alloy-data` for discovery state; `alloy/config.alloy` + `alloy/auths.yml` on disk.
 - The poller sits on the **management** network. A jump box in a user VLAN is not a standby.
 
-Compose on a laptop is for trying the image, not a failover pair.
+Host `systemctl` is optional ([install-alloy.md](install-alloy.md#optional-run-as-a-host-service)). Compose on Docker Desktop is not a failover pair.
 
 ## First real HA: one poller per site
 

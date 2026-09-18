@@ -2,112 +2,38 @@
 
 [← README](../README.md)
 
-`apt install alloy` (or the RHEL package) installs Grafana’s **published** collector and the Linux service. That is enough for generic metrics and syslog. It is **not** enough for this guide.
+The first-time path is **Docker Compose** on a Linux poller — [README quickstart](../README.md#quickstart). This page is the image itself, compile, and the optional host systemd service.
 
-This guide’s config uses three pieces that are not in that package yet:
+`apt install alloy` installs Grafana’s **published** collector. That package cannot run this guide’s SNMP discovery / traps / NetFlow. Do not start there unless you are following [run as a host service](#optional-run-as-a-host-service).
 
-- Scan a CIDR and pick SNMP modules (`discovery.snmp`)
-- Receive SNMP traps
-- Receive NetFlow / IPFIX / sFlow
+The extra pieces ship in a **public** image: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) (personal GHCR, not `grafana/alloy`). Tags match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases). Fingerprinters and the vendor OID library are **whatever that tag baked in** — not live [snmp-sd](https://github.com/Mesverrum/snmp-sd) `main`.
 
-Those ship in a **public** image: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network). Most people **pull** it (no GitHub login). You can **compile** the same bits from source instead. Either way you copy three files onto the poller and `systemctl` keeps working. You do **not** need to write Go.
+| Path | When to use |
+|------|-------------|
+| [README Compose quickstart](../README.md#quickstart) | Default. Pull + run. No compile. |
+| [Compile from source](#optional-compile-from-source) | You want to rebuild, or you do not trust a prebuilt binary. |
+| [Host systemd service](#optional-run-as-a-host-service) | You already run Alloy with `systemctl` and want that layout. |
 
-| Path | When to use | Time |
-|------|-------------|------|
-| [Pull the image](#2-pull-the-network-image-no-compile) | Default. Public package, anonymous `docker pull`. | Minutes |
-| [Compile from source](#optional-compile-from-source) | You want to rebuild, or you do not trust a prebuilt binary. | First run 15–40 min |
+Source branch: [Mesverrum/alloy](https://github.com/Mesverrum/alloy) **`network-snmp`**.
 
-Source: [Mesverrum/alloy](https://github.com/Mesverrum/alloy) branch **`network-snmp`**. Tags on the image match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases).
+## What Compose uses from the image
 
-The image is `ghcr.io/mesverrum/alloy-network` (a personal GHCR package), not Grafana’s published `grafana/alloy`. Fingerprinters and the vendor OID library are **whatever that tag baked in** — not live [snmp-sd](https://github.com/Mesverrum/snmp-sd) `main`. Compile from current `network-snmp` if you need a newer library.
+`compose.yaml` pulls `ALLOY_IMAGE` (default `ghcr.io/mesverrum/alloy-network:v0.1.0`), sets `--stability.level=experimental`, and uses `network_mode: host` so SNMP and UDP listeners share the poller’s interfaces.
 
-## 1. Official Alloy service (file layout)
+You mount two files; everything else (binary, `snmp-network.yml`, `fingerprinters.yml`) stays inside the image:
 
-Debian / Ubuntu — skip this if `systemctl status alloy` already works:
+| Host path | Inside the container |
+|-----------|----------------------|
+| `alloy/config.alloy` | `/etc/alloy/config.alloy` |
+| `alloy/auths.yml` | `/etc/alloy/auths.yml` |
+| Docker volume `alloy-data` | `/var/lib/alloy/data` (discovery state) |
+| `.env` | `GC_OTLP_*` |
 
-```
-sudo mkdir -p /etc/apt/keyrings
-sudo wget -O /etc/apt/keyrings/grafana.asc https://apt.grafana.com/gpg-full.key
-sudo chmod 644 /etc/apt/keyrings/grafana.asc
-echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
-sudo apt-get update && sudo apt-get install alloy
-```
-
-Other distros: [Install Alloy on Linux](https://grafana.com/docs/alloy/latest/set-up/install/linux/).
-
-## 2. Pull the network image (no compile)
-
-On any machine with Docker (the poller or a laptop):
-
-```
-export ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0
-docker pull "$ALLOY_IMAGE"
-```
-
-No `docker login` is required. If pull fails, check you can reach `ghcr.io`, then use [compile](#optional-compile-from-source).
-
-Compose users: set `ALLOY_IMAGE` in `.env` to that same tag and skip the copy steps below (`docker compose up -d`).
-
-## 3. Install the program on the poller
-
-The service already points at `/usr/bin/alloy` and `/etc/alloy/`. Replace the program and add the SNMP vendor library. **Do not** overwrite `/etc/alloy/config.alloy` with the example from the image — that would wipe the file you are about to edit.
-
-```
-sudo cp -a /usr/bin/alloy /usr/bin/alloy.dist
-
-docker create --name alloy-extract "$ALLOY_IMAGE"
-sudo docker cp alloy-extract:/bin/alloy /usr/bin/alloy
-sudo docker cp alloy-extract:/usr/bin/snmp-discovery /usr/bin/snmp-discovery
-sudo docker cp alloy-extract:/etc/alloy/snmp-network.yml /etc/alloy/snmp-network.yml
-sudo docker cp alloy-extract:/etc/alloy/fingerprinters.yml /etc/alloy/fingerprinters.yml
-docker rm alloy-extract
-```
-
-If the two `.yml` copies fail, list what the image actually contains:
-
-```
-docker run --rm --entrypoint ls "$ALLOY_IMAGE" /etc/alloy
-```
-
-Copy every `*.yml` you see **except** `config.alloy`.
-
-Built or pulled on a laptop? `scp` `alloy`, `snmp-discovery`, and those two YAML files to the poller, then `sudo install -m 755 alloy /usr/bin/alloy` and the same for `snmp-discovery`.
-
-## 4. Allow unfinished (but needed) components
-
-Debian / Ubuntu: edit `/etc/default/alloy`. RHEL family: `/etc/sysconfig/alloy`. Add:
-
-```
-CUSTOM_ARGS="--stability.level=experimental"
-```
-
-Leave `CONFIG_FILE="/etc/alloy/config.alloy"` as the package set it.
-
-Grafana hides unfinished features behind that flag. Without it, the service starts but ignores discovery / traps / flow.
-
-## 5. Prove the new program is what is running
-
-```
-alloy --version
-sudo systemctl restart alloy
-journalctl -u alloy -n 50 --no-pager
-```
-
-If the log says `unknown component "discovery.snmp"`, Linux is still running the old `/usr/bin/alloy`. Compare dates:
-
-```
-ls -l /usr/bin/alloy /usr/bin/alloy.dist
-```
-
-Redo step 3.
-
-On the poller, open http://127.0.0.1:12345 — Alloy’s **local** status page (component graph). That is not Grafana Cloud.
-
-Then go back to the [README quickstart](../README.md#quickstart) for `auths.yml`, config, and dashboard import.
+Copy `config.alloy.sample` **before** `docker compose up`. If that path is missing, Docker creates a *directory* named `config.alloy` and Alloy will not start.
 
 ## Optional: compile from source
 
-Skip this if you pulled the public image. First compile downloads several GB and often takes **15–40 minutes**.
+Skip this if you pulled the public image. First compile downloads several GB and often takes **15–40 minutes**. Then set `ALLOY_IMAGE=alloy-network:dev` in `.env` and use the same Compose quickstart.
 
 **From this repo** (clones `network-snmp` if you do not already have it next door):
 
@@ -127,34 +53,68 @@ docker build -f Dockerfile.network-src -t alloy-network:dev .
 export ALLOY_IMAGE=alloy-network:dev
 ```
 
-Then continue from [step 3](#3-install-the-program-on-the-poller).
+## Optional: run as a host service
 
-## Optional: Docker Compose
+Only if you want `systemctl start alloy` instead of Compose. You still need Docker once, to copy files out of the image.
 
-Same image, as a container instead of systemd. Docker’s default bridge often cannot reach a management VLAN. On Linux, set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
+### 1. Official Alloy service (file layout)
 
-```
-cd /path/to/grafana-network-o11y-guide
-cp .env.sample .env
-cp alloy/config.alloy.sample alloy/config.alloy
-```
-
-Set `ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0` in `.env`. Write communities / v3 into `alloy/auths.yml` (`snmp-discovery init --out-auths alloy/auths.yml`, or copy `alloy/auths.example.yml`). Edit the `cidrs` / `auths` lists in `alloy/config.alloy`. Then:
+Debian / Ubuntu — skip this if `systemctl status alloy` already works:
 
 ```
-docker compose up -d
+sudo mkdir -p /etc/apt/keyrings
+sudo wget -O /etc/apt/keyrings/grafana.asc https://apt.grafana.com/gpg-full.key
+sudo chmod 644 /etc/apt/keyrings/grafana.asc
+echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo apt-get update && sudo apt-get install alloy
 ```
 
-## Files that matter
+Other distros: [Install Alloy on Linux](https://grafana.com/docs/alloy/latest/set-up/install/linux/).
 
-| Path | Who creates it |
-|------|----------------|
-| `/usr/bin/alloy` | You, copied from the image |
-| `/usr/bin/snmp-discovery` | Same image — `snmp-discovery init` writes the first `auths.yml` ([secrets.md](secrets.md)) |
-| `/etc/alloy/snmp-network.yml` | Copied from the image (vendor OIDs) |
-| `/etc/alloy/fingerprinters.yml` | Copied from the image (`sysObjectID` → modules) |
-| `/etc/alloy/auths.yml` | **You** — communities / v3 |
-| `/etc/alloy/config.alloy` | **You** — from the samples in this repo |
-| `/etc/default/alloy` | Package + your `CUSTOM_ARGS` and `GC_OTLP_*` |
+### 2. Pull and copy
 
-When Grafana ships these pieces in the official package, you can go back to `apt-get install alloy` and skip this page.
+```
+export ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0
+docker pull "$ALLOY_IMAGE"
+
+sudo cp -a /usr/bin/alloy /usr/bin/alloy.dist
+docker create --name alloy-extract "$ALLOY_IMAGE"
+sudo docker cp alloy-extract:/bin/alloy /usr/bin/alloy
+sudo docker cp alloy-extract:/usr/bin/snmp-discovery /usr/bin/snmp-discovery
+sudo docker cp alloy-extract:/etc/alloy/snmp-network.yml /etc/alloy/snmp-network.yml
+sudo docker cp alloy-extract:/etc/alloy/fingerprinters.yml /etc/alloy/fingerprinters.yml
+docker rm alloy-extract
+```
+
+**Do not** overwrite `/etc/alloy/config.alloy` with the example from the image. Copy this repo’s [`alloy/config.alloy.sample`](../alloy/config.alloy.sample) there after you edit CIDRs.
+
+If the two `.yml` copies fail: `docker run --rm --entrypoint ls "$ALLOY_IMAGE" /etc/alloy` and copy every `*.yml` except `config.alloy`.
+
+### 3. Experimental flag and Cloud env
+
+Debian / Ubuntu: `/etc/default/alloy`. RHEL: `/etc/sysconfig/alloy`.
+
+```
+CUSTOM_ARGS="--stability.level=experimental"
+GC_OTLP_URL=https://otlp-gateway-prod-<region>.grafana.net/otlp
+GC_OTLP_ACCOUNT=123456
+GC_OTLP_KEY=glc_…
+```
+
+Without the stability line, the service starts but ignores discovery / traps / flow.
+
+Secrets: `sudo cp alloy/auths.example.yml /etc/alloy/auths.yml` and `chmod 600`. Then `sudo cp alloy/config.alloy.sample /etc/alloy/config.alloy` and edit CIDRs.
+
+### 4. Prove it
+
+```
+alloy --version
+sudo systemctl restart alloy
+journalctl -u alloy -n 50 --no-pager
+```
+
+`unknown component "discovery.snmp"` means Linux is still running the old `/usr/bin/alloy`. Compare `ls -l /usr/bin/alloy /usr/bin/alloy.dist` and redo step 2.
+
+Local UI: http://127.0.0.1:12345. Then import dashboards from the [README](../README.md#quickstart) step 6.
+
+When Grafana ships these pieces in the official package, you can go back to `apt-get install alloy` and skip the image.

@@ -2,47 +2,35 @@
 
 [← README](../README.md)
 
-**Grafana Fleet Management cannot store secrets.** That is a product limit, not a style choice. Anyone who can open the pipeline can read the text. Put credentials on the poller. Fleet only stores **names** like `public_v2`. The OpenTelemetry `glc_` token stays in `/etc/default/alloy` with the communities — never in Fleet and never in this git repo.
+**Grafana Fleet Management cannot store secrets.** That is a product limit, not a style choice. Anyone who can open the pipeline can read the text. Put credentials on the poller. Fleet only stores **names** like `public_v2`. The OpenTelemetry `glc_` token stays in `.env` (Compose) or `/etc/default/alloy` (host service) — never in Fleet and never in this git repo.
 
 Official Alloy list of secret sources: [Secrets and credentials](https://grafana.com/docs/alloy/latest/access_permissions/).
 
 ## Start here: a file on the poller
 
-Two ways to get `/etc/alloy/auths.yml`. Config and Fleet then list the **names** only (`public_v2`, `campus_v2`) — never the community string.
+Compose (default) uses `alloy/auths.yml` next to `compose.yaml`. A host service uses `/etc/alloy/auths.yml`. Config and Fleet then list the **names** only (`public_v2`, `campus_v2`) — never the community string.
 
-**Ask-and-write (good first time).** After you installed the network program ([install-alloy.md](install-alloy.md)), `snmp-discovery` is on the poller. It writes a `0600` auths file and a matching name list so you cannot typo `public_v2` in one place and `pubic_v2` in the other:
-
-```
-sudo snmp-discovery init \
-  --out-auths /etc/alloy/auths.yml \
-  --out-discovery /tmp/discovery.yml
-```
-
-With no `--auth-*` / `--group` flags it asks questions (community or v3, then CIDRs). Non-interactive:
+**Copy the example** (usual first time):
 
 ```
-sudo snmp-discovery init \
-  --out-auths /etc/alloy/auths.yml \
-  --out-discovery /tmp/discovery.yml \
-  --auth-v2 public_v2=public \
-  --group hq,cidrs=10.0.0.0/24,auths=public_v2
+cp alloy/auths.example.yml alloy/auths.yml
+chmod 600 alloy/auths.yml
 ```
 
-Copy the **names** (and CIDRs) into `/etc/alloy/config.alloy` or Fleet. Alloy does not read `discovery.yml` — you can delete it. Check names match:
+Host service: `sudo cp alloy/auths.example.yml /etc/alloy/auths.yml && sudo chmod 600 /etc/alloy/auths.yml`.
+
+**Or ask-and-write** with `snmp-discovery` from the image (optional):
 
 ```
-snmp-discovery init --check --auths /etc/alloy/auths.yml --discovery /tmp/discovery.yml
+docker run --rm -it --entrypoint snmp-discovery \
+  -v "$PWD/alloy:/out" \
+  ghcr.io/mesverrum/alloy-network:v0.1.0 \
+  init --out-auths /out/auths.yml --out-discovery /tmp/discovery.yml
 ```
+
+With no `--auth-*` / `--group` flags it asks questions (community or v3, then CIDRs). Alloy does not read `discovery.yml` — you can delete it. Copy the **names** (and CIDRs) into `alloy/config.alloy` or Fleet.
 
 Fleet can read this same file (`local.file` in the sample). You do not have to stuff the YAML into `SNMP_AUTHS` for a first install.
-
-**Or copy the example** and edit it yourself:
-
-```
-sudo cp alloy/auths.example.yml /etc/alloy/auths.yml
-sudo chmod 600 /etc/alloy/auths.yml
-sudo chown root:root /etc/alloy/auths.yml
-```
 
 One file, several named blocks:
 
@@ -66,9 +54,7 @@ auths:
     priv_protocol: AES
 ```
 
-The Cloud token (`GC_OTLP_KEY`) goes in `/etc/default/alloy` (or `/etc/sysconfig/alloy`), not in this file and not in Fleet. How to copy URL / instance ID / token: [grafana-cloud-otlp.md](grafana-cloud-otlp.md).
-
-Compose users: same YAML, path `alloy/auths.yml` next to `compose.yaml` (`snmp-discovery init --out-auths alloy/auths.yml`). The Cloud token stays in `.env`.
+The Cloud token (`GC_OTLP_KEY`) goes in `.env` (Compose) or `/etc/default/alloy` (host service), not in this file and not in Fleet. How to copy URL / instance ID / token: [grafana-cloud-otlp.md](grafana-cloud-otlp.md).
 
 ## If your org already has a secret store
 

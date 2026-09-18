@@ -40,7 +40,7 @@ Stay on the **grafana.com** stack page (the portal with product tiles), not insi
 
 If the generate button offers scopes, enable write for **metrics**, **logs**, and **traces**. You need all three for this guide (SNMP + flow metrics, trap/syslog logs).
 
-Put the three values on the poller (`/etc/default/alloy`). Do not paste `GC_OTLP_KEY` into Fleet.
+Put the three values in `.env` on the poller (Compose). Host service: `/etc/default/alloy`. Do not paste `GC_OTLP_KEY` into Fleet.
 
 ## 2. Alternate path — inside Grafana (Connections)
 
@@ -78,4 +78,4 @@ The instance ID is still on the OpenTelemetry tile, not on the access-policy pag
 
 All three must be from the **same** stack and **same** region (the region is in the gateway hostname, e.g. `prod-us-central-0`). Mixing a US URL with an EU token looks like 401.
 
-Then continue the [README quickstart](../README.md#quickstart) at step 2.
+Then continue the [README quickstart](../README.md#quickstart) at step 2 (paste into `.env`).

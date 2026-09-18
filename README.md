@@ -4,30 +4,27 @@ Stand up **network observability in Grafana Cloud** with one collector on a Linu
 
 This is written for **network engineers**. You do not need a Grafana SE, and you do not need to be a software developer. If a word is new, see [docs/glossary.md](docs/glossary.md).
 
-This is **not** an official Grafana product, and there is **no support SLA**. Issues and PRs here, or the contact at the bottom. The extra SNMP / trap / flow pieces are not in Grafana’s `apt`/`yum` Alloy package yet. Two ways to get them:
-
-- **Pull** the public image [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) — no GitHub login, no compile. The image lives under a personal GHCR namespace, not `grafana/alloy`.
-- **Compile** from [Mesverrum/alloy](https://github.com/Mesverrum/alloy) `network-snmp` if you want to rebuild it yourself.
-
-Steps for both: [docs/install-alloy.md](docs/install-alloy.md). `apt install alloy` only gives you the Linux **service**. You still replace `/usr/bin/alloy` and set `--stability.level=experimental`.
+This is **not** an official Grafana product, and there is **no support SLA**. Issues and PRs here, or the contact at the bottom. The extra SNMP / trap / flow pieces are not in Grafana’s `apt`/`yum` Alloy package yet. You run a **public Docker image** ([`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network)) — personal GHCR namespace, not `grafana/alloy`. Compile only if you want to rebuild: [docs/install-alloy.md](docs/install-alloy.md).
 
 ## Read this before you start
 
 | Expect this | Not this |
 |-------------|----------|
+| **Linux Docker** on a host that can **ping and `snmpget`** the CIDR | Docker Desktop on a laptop that cannot see the management VLAN |
 | **Your** Grafana Cloud stack (URL, instance ID, `glc_` token with **metrics:write** and **logs:write**) | A shared demo stack, or the dashboard URL as `GC_OTLP_URL` |
-| A Linux poller that can **ping and `snmpget`** the CIDR | Alloy working when `snmpget` from that host already fails |
 | First pass = SNMP + **Health** + **Device Summary** | Flow / trap / syslog boards filling in with no device export |
-| Local `/etc/alloy/config.alloy` the first time | Fleet on day one — the OpenTelemetry token usually **cannot** write Fleet |
-| Communities / v3 / `glc_` **on the poller** (`auths.yml`, `/etc/default/alloy`) | Passwords pasted into Fleet |
+| Local `alloy/config.alloy` the first time | Fleet on day one — the OpenTelemetry token usually **cannot** write Fleet |
+| Communities / v3 in `alloy/auths.yml`, Cloud token in `.env` | Passwords pasted into Fleet |
 | Fingerprinters + vendor OIDs **baked into the image tag** you pulled | Live `snmp-sd` HEAD or a newer library than `v0.1.0` |
 | Device Details util / error / memory % after you [import recording rules](docs/recording-rules.md) | Those panels lighting up from SNMP scrape alone |
 
 Point trap / syslog / flow destinations at this poller only when you want those boards. SNMP-only is a valid first pass.
 
+`apt install alloy` is **not** the first step. Use that later only if you want Alloy as a host systemd service ([install-alloy.md](docs/install-alloy.md#optional-run-as-a-host-service)).
+
 ## What you are building
 
-A Linux host on the **management network** (same VLAN or VRF as device SNMP, traps, syslog, and flow exporters). Grafana Alloy runs there as a normal systemd service.
+A Linux host on the **management network** (same VLAN or VRF as device SNMP, traps, syslog, and flow exporters). Alloy runs in Docker with **host networking** so it uses that host’s IPs.
 
 | Your devices send / answer | Alloy does | You see in Grafana Cloud |
 |----------------------------|------------|---------------------------|
@@ -40,7 +37,7 @@ When you want those last three rows, point device destinations at this poller’
 
 ```mermaid
 flowchart LR
-  D["Routers · switches · firewalls"] -->|"SNMP, traps, syslog, flow"| A["Alloy on a poller"]
+  D["Routers · switches · firewalls"] -->|"SNMP, traps, syslog, flow"| A["Alloy in Docker on a poller"]
   S["Secrets on the poller only"] --> A
   A -->|"HTTPS to Cloud"| G[("Grafana Cloud")]
   F["Fleet: CIDRs and auth names<br/>no passwords"] -.-> A
@@ -50,53 +47,52 @@ If Alloy polls `10.1.1.5` as `core-01`, traps and flows from `10.1.1.5` get the 
 
 ## Prerequisites
 
-- A Linux host that can **ping and `snmpget`** the devices. If that fails from the host, Alloy will fail too.
-- A Grafana Cloud login and **your** stack (not a shared demo). How to copy the three push settings (URL, numeric instance ID, `glc_` token with metrics + logs write): **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**. You will not find these in a welcome email.
-- **Docker** on the poller (or a laptop): used to **pull** the public image, or to **compile** if you choose that path. You copy the program onto the poller. You do not need to write Go.
+- A **Linux** host that can **ping and `snmpget`** the devices. If that fails from the host, Alloy will fail too. Docker Desktop on Mac/Windows is not this path.
+- Docker Engine + Compose on that host (`docker compose version`).
+- A Grafana Cloud login and **your** stack. How to copy the three push settings: **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**.
 
 ## Quickstart
 
-**1. Install the official Alloy service** so Linux has `/etc/alloy/` and `systemctl start alloy`. Debian / Ubuntu:
+**1. Clone this repo on the poller.**
 
 ```
-sudo mkdir -p /etc/apt/keyrings
-sudo wget -O /etc/apt/keyrings/grafana.asc https://apt.grafana.com/gpg-full.key
-sudo chmod 644 /etc/apt/keyrings/grafana.asc
-echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
-sudo apt-get update && sudo apt-get install alloy
+git clone https://github.com/Mesverrum/grafana-network-o11y-guide.git
+cd grafana-network-o11y-guide
 ```
 
-Other distros: [Install Alloy on Linux](https://grafana.com/docs/alloy/latest/set-up/install/linux/).
-
-That package is the **service and file layout**. It cannot run this guide’s SNMP discovery / trap / flow samples yet. Next: **[docs/install-alloy.md](docs/install-alloy.md)** — pull `ghcr.io/mesverrum/alloy-network:v0.1.0` (or compile), replace `/usr/bin/alloy`, copy the SNMP library. Then in `/etc/default/alloy` (RHEL: `/etc/sysconfig/alloy`):
+**2. Cloud credentials in `.env`, not in Fleet.** Copy them using [docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md) (grafana.com → your stack → **OpenTelemetry** → **Configure**):
 
 ```
-CUSTOM_ARGS="--stability.level=experimental"
+cp .env.sample .env
 ```
 
-Without that line, Alloy will refuse the network pieces even after you replace the program.
-
-**2. Cloud credentials on the poller, not in Fleet.** Copy them from Grafana Cloud using [docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md) (grafana.com → your stack → **OpenTelemetry** → **Configure**). Add to the same file (`/etc/default/alloy`):
+Edit `.env`:
 
 ```
 GC_OTLP_URL=https://otlp-gateway-prod-<region>.grafana.net/otlp
 GC_OTLP_ACCOUNT=123456
 GC_OTLP_KEY=glc_…
+ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0
 ```
 
-Do not open `GC_OTLP_URL` in a browser (it is a push API, not a website).
+Do not open `GC_OTLP_URL` in a browser (it is a push API, not a website). Leave `ALLOY_IMAGE` as that tag unless you [compiled](docs/install-alloy.md#optional-compile-from-source).
 
-**3. SNMP credentials on the poller.** A file only root can read. Easiest first time: `snmp-discovery init` writes `/etc/alloy/auths.yml` (it asks for the community or v3 user, or take flags). Copy the example instead if you prefer to edit YAML by hand. Details: [docs/secrets.md](docs/secrets.md).
+**3. SNMP credentials.** Copy the example and put your communities / v3 in. Details: [docs/secrets.md](docs/secrets.md).
 
 ```
-sudo snmp-discovery init --out-auths /etc/alloy/auths.yml --out-discovery /tmp/discovery.yml
+cp alloy/auths.example.yml alloy/auths.yml
+chmod 600 alloy/auths.yml
 ```
 
-Each block has a **name** (`public_v2`, `dc_v3`). Config and Fleet refer to that name only. Other stores (Vault, and so on): [docs/secrets.md](docs/secrets.md).
+Each block has a **name** (`public_v2`, `dc_v3`). Config refers to that name only.
 
-**4. Tell Alloy what to scan.** Two ways:
+**4. Tell Alloy what to scan.** Copy the sample (do this *before* `compose up` — if the file is missing, Docker creates a directory with that name):
 
-- **Local file (simplest first time):** copy [`alloy/config.alloy.sample`](alloy/config.alloy.sample) to `/etc/alloy/config.alloy`. `cidrs` and `auths` are lists — put every prefix and every credential **name** you use:
+```
+cp alloy/config.alloy.sample alloy/config.alloy
+```
+
+Edit the `cidrs` and `auths` lists:
 
 ```alloy
   group {
@@ -106,24 +102,24 @@ Each block has a **name** (`public_v2`, `dc_v3`). Config and Fleet refer to that
   }
 ```
 
-- **Fleet (later, optional):** Grafana Cloud → **Connections → Collector → Fleet Management → add collector**. Skip this on the first install — the OpenTelemetry `glc_` token usually cannot create a pipeline. You need a separate access policy with **fleet-management:write**. Then paste the enroll snippet and edit CIDRs / auth *names* in Fleet — never communities. Sample: [`alloy/fleet-pipeline.alloy.sample`](alloy/fleet-pipeline.alloy.sample). More: [docs/fleet.md](docs/fleet.md).
+Fleet is later and optional ([docs/fleet.md](docs/fleet.md)). Skip it on the first install.
 
-**5. Start the service.**
-
-```
-sudo systemctl enable --now alloy
-sudo systemctl restart alloy
-```
-
-After you change `/etc/alloy/config.alloy`:
+**5. Start Alloy.**
 
 ```
-sudo systemctl reload alloy
+docker compose up -d
+docker compose logs -f --tail=80
 ```
 
-Logs: `journalctl -u alloy -f`. Local health page (on the poller, not Cloud): http://127.0.0.1:12345
+`compose.yaml` uses `network_mode: host` so SNMP and UDP listeners share the poller’s interfaces. Local health page (on the poller, not Cloud): http://127.0.0.1:12345
 
-On each device, set trap / syslog / flow export to **this host’s management IP** and the ports in the config (samples: traps `11620`, syslog `1514`, NetFlow `2055`, sFlow `6344`) — only if you want those boards. Until a device exports, Flow / trap / syslog panels stay empty; that is expected.
+After you change `alloy/config.alloy` or `alloy/auths.yml`:
+
+```
+docker compose up -d --force-recreate
+```
+
+On each device, set trap / syslog / flow export to **this host’s management IP** and the sample ports (`11620`, `1514`, `2055`, `6344`) — only if you want those boards. Until a device exports, Flow / trap / syslog panels stay empty; that is expected.
 
 **6. Import the dashboards.** While you do this, the first SNMP polls should already be landing in Cloud.
 
@@ -131,24 +127,11 @@ In Grafana Cloud: left menu → **Dashboards** → **New** → **Import**. Uploa
 
 Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devices, discovery counts, and scrapes should start filling in. Then import [recording rules](docs/recording-rules.md) so Device Details util / error / memory % can fill. Empty panels: [troubleshooting/bring-up.md](troubleshooting/bring-up.md). You do not need Explore to finish bring-up.
 
-## Optional: Docker Compose
-
-If you prefer containers to systemd, the same image can run under Compose. Pull it ([install-alloy.md](docs/install-alloy.md)). Docker’s default bridge often **cannot** reach a campus management VLAN — on Linux set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
-
-```
-cp .env.sample .env
-cp alloy/config.alloy.sample alloy/config.alloy
-# secrets: snmp-discovery init --out-auths alloy/auths.yml
-#   (or cp alloy/auths.example.yml alloy/auths.yml and edit)
-# then edit .env (GC_OTLP_*) and the cidrs / auths lists in config.alloy
-docker compose up -d
-```
-
 ## More detail
 
 - **[docs/glossary.md](docs/glossary.md)** — Alloy, Fleet, Explore, PromQL, …
 - **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)** — where to copy URL, instance ID, and token
-- **[docs/install-alloy.md](docs/install-alloy.md)** — pull the public image, or compile; replace the official program
+- **[docs/install-alloy.md](docs/install-alloy.md)** — image tags, compile, or run as a host systemd service
 - **[docs/architecture.md](docs/architecture.md)** — discovery, poll intervals, naming
 - **[docs/scalability.md](docs/scalability.md)** — when to add a poller, SNMP shards, Cloud cardinality
 - **[docs/availability.md](docs/availability.md)** — what dies with the poller; site split, VIP, why two Alloy is not HA

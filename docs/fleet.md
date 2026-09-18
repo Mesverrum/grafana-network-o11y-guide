@@ -4,16 +4,16 @@
 
 **Idea:** manage Alloy’s non-secret config from a **central Grafana Cloud UI**, with version history, instead of ssh-editing `/etc/alloy/config.alloy` on every change. That is useful for one poller and for many. Each enrolled host pulls the pipeline. You still keep SNMP communities and the Cloud token **on the poller**.
 
-**Skip Fleet on the first install.** Copy [`alloy/config.alloy.sample`](../alloy/config.alloy.sample) to the poller, get SNMP on **Health** / **Device Summary**, then come back. The `glc_` token from **OpenTelemetry → Configure** is almost always metrics/logs/traces write only — it cannot create a Fleet pipeline.
+**Skip Fleet on the first install.** Use the Compose files in this repo, get SNMP on **Health** / **Device Summary**, then come back. The `glc_` token from **OpenTelemetry → Configure** is almost always metrics/logs/traces write only — it cannot create a Fleet pipeline.
 
 Today the UI is **Connections → Collector → Fleet Management**. (Grafana may fold this into an “Instrumentation Hub” later; the split is the same: names in Cloud, secrets on the host.)
 
 ## Enroll a poller
 
-1. On the poller, Alloy is installed and the network binary is in place ([install-alloy.md](install-alloy.md)).
+1. On the poller, Compose (or the host service) is already running the network image ([README](../README.md#quickstart)).
 2. In Grafana Cloud, open **Connections → Collector → Fleet Management**.
 3. **Add collector** (wording varies slightly). The UI prints a short config snippet that starts with `remotecfg`.
-4. Put that snippet in `/etc/alloy/config.alloy` and reload: `sudo systemctl reload alloy`.
+4. Put that snippet in `alloy/config.alloy` (Compose) or `/etc/alloy/config.alloy` (host service) and recreate / reload: `docker compose up -d --force-recreate` or `sudo systemctl reload alloy`.
 5. The host should appear as online in Fleet.
 
 That snippet only tells Alloy *where* to pull config. It is not where you put communities.
@@ -32,13 +32,13 @@ Sample you can paste and then edit: [`alloy/fleet-pipeline.alloy.sample`](../all
 
 **Fleet is not a secret store.** If you are about to type `community:`, `password:`, `priv_password:`, or `glc_`, stop and put it on the poller instead ([secrets.md](secrets.md)).
 
-Do not paste `/etc/alloy/snmp-network.yml` (the vendor OID library) into Fleet. It is large and already on the host from the install.
+Do not paste `snmp-network.yml` (the vendor OID library) into Fleet. It is large and already inside the image.
 
 ## What stays on the poller
 
-- `/etc/alloy/auths.yml` (or Vault / env — see [secrets.md](secrets.md))
-- `GC_OTLP_*` in `/etc/default/alloy`
-- `CUSTOM_ARGS="--stability.level=experimental"`
+- `alloy/auths.yml` (Compose) or `/etc/alloy/auths.yml` (host service) — or Vault / env, see [secrets.md](secrets.md)
+- `GC_OTLP_*` in `.env` or `/etc/default/alloy`
+- `--stability.level=experimental` (already in `compose.yaml`; host service sets `CUSTOM_ARGS`)
 - The `remotecfg` snippet itself
 
 **Export to Cloud:** the pipeline in Fleet cannot “call” blocks that exist only in the local file. Practical rule: put the “send to Grafana Cloud” export **in the Fleet sample** (it already does), *or* keep a local file that only does export and do not split one export across both. If you do both and they listen on the same trap/syslog port, one of them will fail to bind.

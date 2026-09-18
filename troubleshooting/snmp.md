@@ -18,7 +18,7 @@ snmpget -v2c -c public -t 2 10.0.0.1:161 1.3.6.1.2.1.1.5.0
 
 ## SNMPv3
 
-The **username**, auth/priv protocols, and passwords must match a named block in `/etc/alloy/auths.yml` and the device USM user.
+The **username**, auth/priv protocols, and passwords must match a named block in `alloy/auths.yml` (Compose) or `/etc/alloy/auths.yml` (host service) and the device USM user.
 
 ```
 snmpget -v3 -l authPriv -u netops -a SHA-256 -A 'auth-pass' -x AES -X 'priv-pass' \
@@ -27,4 +27,4 @@ snmpget -v3 -l authPriv -u netops -a SHA-256 -A 'auth-pass' -x AES -X 'priv-pass
 
 ## Config names
 
-In `/etc/alloy/config.alloy` (or Fleet), every name in `auths = ["public_v2", "campus_v2"]` must be a key under `auths:` in `/etc/alloy/auths.yml`. A typo here looks like “discovery is broken” but is just a name mismatch.
+In `alloy/config.alloy` (or Fleet / `/etc/alloy/config.alloy`), every name in `auths = ["public_v2", "campus_v2"]` must be a key under `auths:` in `alloy/auths.yml`. A typo here looks like “discovery is broken” but is just a name mismatch.

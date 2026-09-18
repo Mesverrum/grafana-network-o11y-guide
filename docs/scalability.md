@@ -126,7 +126,7 @@ Recording rules (memory %, error %) belong in Grafana Cloud, not as extra SNMP w
 
 ## What is not a scale path
 
-- **Compose on a laptop** — fine to try the image ([README](../README.md#optional-docker-compose)). Production still wants systemd on a host that can `snmpget` the devices.
+- **Docker Desktop on a laptop** — the container cannot see a campus management VLAN. Compose is the default runtime, but it has to run on a Linux host that can already `snmpget` the devices.
 - **Pasting `snmp-network.yml` into Fleet** — megabytes; already on the host from install.
 - **A second NMS walking the same community** — looks like “Alloy is slow.”
 - **Replicas of one Alloy with the same config and no `hashmod`** — 2× SNMP, duplicate metrics.

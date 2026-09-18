@@ -4,21 +4,28 @@
 
 Work top to bottom. Confirm on the imported dashboards (Device Summary, Health) and on the local Alloy page http://127.0.0.1:12345 (on the poller) before guessing in Explore.
 
-### 1. Log says `unknown component "discovery.snmp"`
+Default runtime is Compose. Host-service notes are in parentheses.
 
-You are still running the official package. Follow [install-alloy.md](../docs/install-alloy.md): replace `/usr/bin/alloy` and set `CUSTOM_ARGS="--stability.level=experimental"` in `/etc/default/alloy`. Then `sudo systemctl restart alloy`.
+### 1. Container will not start, or log says `unknown component "discovery.snmp"`
 
-On a laptop Compose setup: `.env` has the wrong `ALLOY_IMAGE`, or you never pulled `ghcr.io/mesverrum/alloy-network:v0.1.0` (or compiled `alloy-network:dev`).
+```
+docker compose logs --tail=80
+```
+
+- `.env` `ALLOY_IMAGE` is not `ghcr.io/mesverrum/alloy-network:v0.1.0` (or your compiled `alloy-network:dev`).
+- You never pulled — `docker compose pull && docker compose up -d`.
+- `alloy/config.alloy` is a **directory** (you ran Compose before copying the sample). `rm -rf alloy/config.alloy`, then `cp alloy/config.alloy.sample alloy/config.alloy`.
+- Host service: you are still running `apt` Alloy. Follow [install-alloy.md](../docs/install-alloy.md#optional-run-as-a-host-service) and set `--stability.level=experimental`.
 
 ### 2. Grafana shows 401 / 404, or nothing arrives
 
-`GC_OTLP_URL`, `GC_OTLP_ACCOUNT`, and `GC_OTLP_KEY` must all be from **the same** Grafana Cloud stack (same region). How to copy them: [grafana-cloud-otlp.md](../docs/grafana-cloud-otlp.md). They live in `/etc/default/alloy` (or `.env` for Compose). Do not open the OTLP URL in a browser.
+`GC_OTLP_URL`, `GC_OTLP_ACCOUNT`, and `GC_OTLP_KEY` must all be from **the same** Grafana Cloud stack (same region). How to copy them: [grafana-cloud-otlp.md](../docs/grafana-cloud-otlp.md). They live in `.env` (or `/etc/default/alloy` on a host service). Do not open the OTLP URL in a browser.
 
-After editing that file: `sudo systemctl restart alloy`.
+After editing `.env`: `docker compose up -d --force-recreate`.
 
 ### 3. Discovery finds zero devices
 
-- `/etc/alloy/auths.yml` missing, or `chmod` not readable by the `alloy` service user
+- `alloy/auths.yml` missing (Compose mount is empty or a directory)
 - Config says `auths = ["public_v2", "campus_v2"]` but those names are missing as keys in the file
 - Community / v3 on the device does not match the file — prove it with [snmp.md](snmp.md)
 
@@ -26,11 +33,11 @@ After editing that file: `sudo systemctl restart alloy`.
 
 Alloy will fail the same way. Management ACL, wrong VRF, device SNMP disabled, or wrong community. Fix reachability first.
 
-Docker on a laptop: the container is often on a bridge that cannot see the campus management network. Use a poller on that network, or `network_mode: host` on Linux.
+Docker Desktop on a laptop cannot see a campus management VLAN. Run Compose on a Linux host on that network (`network_mode: host` is already in `compose.yaml`).
 
 ### 5. Alloy looks healthy locally, dashboards are empty
 
-You are logged into a **different** Grafana Cloud stack than `GC_OTLP_*` on the poller. Check the browser URL vs the URL in `/etc/default/alloy`. On import, pick the Prometheus/Loki data sources that belong to **this** stack.
+You are logged into a **different** Grafana Cloud stack than `GC_OTLP_*` in `.env`. Check the browser URL vs that file. On import, pick the Prometheus/Loki data sources that belong to **this** stack.
 
 ### 6. One panel is empty, others are not
 

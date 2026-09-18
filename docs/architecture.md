@@ -33,7 +33,7 @@ flowchart TB
 
 ## What must be installed
 
-The official Linux package gives you the service. This guide’s discovery / trap / flow config needs the **network** build on top of that. Follow [install-alloy.md](install-alloy.md): pull the public `ghcr.io/mesverrum/alloy-network` image, or compile from `network-snmp`. That image is a personal GHCR package, not `grafana/alloy`. Fingerprinters are whatever the tag baked in.
+The default is Docker Compose on a Linux poller ([README](../README.md#quickstart)) using the public `ghcr.io/mesverrum/alloy-network` image (personal GHCR, not `grafana/alloy`). Fingerprinters are whatever the tag baked in. Optional: compile, or copy the binary onto a host systemd service — [install-alloy.md](install-alloy.md).
 
 The large SNMP “which OIDs for which vendor” library is **inside that build** (`/etc/alloy/snmp-network.yml`). Do not paste it into Fleet.
 

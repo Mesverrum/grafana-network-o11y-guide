@@ -7,12 +7,13 @@ Written for network engineers. Skip any row you already know.
 | Term | Meaning here |
 |------|----------------|
 | **Poller** | The Linux host that runs Alloy. It must reach device management IPs. |
-| **Alloy** | Grafana’s collector: one program (`/usr/bin/alloy`) run by `systemctl`. |
-| **systemd / systemctl** | How Linux starts the service. `sudo systemctl status alloy` / `restart alloy`. |
-| **journalctl** | Service logs: `journalctl -u alloy -f`. |
+| **Alloy** | Grafana’s collector. This guide runs it in Docker (`docker compose`); optional host path uses `systemctl`. |
+| **Compose / `docker compose`** | How you start the default path. Logs: `docker compose logs -f`. Recreate after config edits: `docker compose up -d --force-recreate`. |
+| **systemd / systemctl** | Optional host-service path. `sudo systemctl status alloy` / `restart alloy`. |
+| **journalctl** | Host-service logs: `journalctl -u alloy -f`. Compose uses `docker compose logs`. |
 | **Config file / `.alloy`** | Alloy’s config (Grafana calls the language *River*). Comments are `//`, not `#`. Samples in `alloy/`. |
 | **Fork / network-snmp** | A copy of Alloy that already has SNMP discovery, traps, and flow. Not in `apt install alloy` yet, and not Grafana-supported. Install steps: [install-alloy.md](install-alloy.md). |
-| **Docker / image** | How you get the network Alloy program: `docker pull` the public [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) image, or compile it. Then copy the program onto the poller. You are not required to run production Alloy in Docker. |
+| **Docker / image** | Default runtime. Compose pulls [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network) and runs it with host networking. Compile only if you want to rebuild. |
 | **Grafana Cloud stack** | One Cloud environment (dashboards + metrics + logs). You pick it on [grafana.com](https://grafana.com) after login. |
 | **Access policy / `glc_` token** | A machine password Grafana shows once. Create it on the stack’s **OpenTelemetry** tile or **Administration → Cloud access policies**. Click-by-click: [grafana-cloud-otlp.md](grafana-cloud-otlp.md). Not the password you type to log into the website. The OpenTelemetry token writes metrics/logs; it cannot edit Fleet or import recording rules. |
 | **OTLP** | How Alloy *pushes* data to Cloud (HTTPS). Three values from that same page: endpoint URL, instance ID, token. Not a website you browse. |
@@ -28,7 +29,7 @@ Written for network engineers. Skip any row you already know.
 | **Hot / cold / topology** | How often Alloy polls. Hot ≈ 60s (CPU, interface counters). Cold ≈ 5 minutes (names, errors). Topology ≈ 15 minutes (LLDP / BGP). Same idea as fast vs slow NMS polling. |
 | **`device_name`** | Label meaning “which network device.” |
 | **`snmp_group`** | Label for the discovery group you named (`hq`, `dc`) — a site or credential bucket, not your CMDB. |
-| **Experimental flag** | `CUSTOM_ARGS="--stability.level=experimental"` in `/etc/default/alloy`. Required until Grafana marks these pieces stable. |
+| **Experimental flag** | `--stability.level=experimental`. Compose already sets it. Host service: `CUSTOM_ARGS` in `/etc/default/alloy`. Required until Grafana marks these pieces stable. |
 | **EPS** | Events per second (syslog line, SNMP trap, or one flow record). [scalability.md](scalability.md) sizes ~2000 syslog / ~1000 trap or flow per CPU. |
 | **Shard / `hashmod`** | Split one CIDR across several pollers by hashing the device IP. Same remainder on two hosts = double SNMP walk. [scalability.md](scalability.md). |
 | **VIP / VRRP** | Floating management IP so devices keep one trap / flow dest when a standby poller takes over. [availability.md](availability.md). |
