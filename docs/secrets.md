@@ -34,6 +34,8 @@ Copy the **names** (and CIDRs) into `/etc/alloy/config.alloy` or Fleet. Alloy do
 snmp-discovery init --check --auths /etc/alloy/auths.yml --discovery /tmp/discovery.yml
 ```
 
+Fleet can read this same file (`local.file` in the sample). You do not have to stuff the YAML into `SNMP_AUTHS` for a first install.
+
 **Or copy the example** and edit it yourself:
 
 ```

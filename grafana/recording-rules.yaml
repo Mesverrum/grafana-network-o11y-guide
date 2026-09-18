@@ -1,0 +1,95 @@
+# Grafana-managed recording rules for A3 / A4 utilization and error panels.
+# Import: Grafana Cloud → Alerting → Recording rules (Prometheus / Mimir).
+# See docs/recording-rules.md.
+#
+# Device Summary and Health work without these. Interface bps / util / error %
+# on Device Details need this file.
+
+groups:
+  - name: alloy-snmp.composites
+    interval: 1m
+    rules:
+      - record: device:snmp_MemoryUtilization:percent
+        expr: |
+          max by (instance, device_name, job, snmp_group) (
+            snmp_cseSysMemoryUtilization{job="alloy-snmp"} or snmp_wlsxSysExtMemoryUsedPercent{job="alloy-snmp"} or snmp_perCentMemoryUtilization{job="alloy-snmp"} or snmp_tpSysMonitorMemoryUtilization{job="alloy-snmp"} or snmp_sfosMemoryPercentUsage{job="alloy-snmp"} or snmp_jnxOperatingBuffer{job="alloy-snmp"} or snmp_hwEntityMemUsage{job="alloy-snmp"} or snmp_hh3cEntityExtMemUsage{job="alloy-snmp"} or snmp_ramUtilization{job="alloy-snmp"} or snmp_swMemUsage{job="alloy-snmp"} or snmp_genMemUtilizationPercentUsed{job="alloy-snmp"} or snmp_iveMemoryUtil{job="alloy-snmp"} or snmp_sonicCurrentRAMUtil{job="alloy-snmp"} or snmp_chStackUnitMemUsageUtil{job="alloy-snmp"} or snmp_ibSystemMonitorMemUsage{job="alloy-snmp"} or snmp_sysMgmtMemUsage{job="alloy-snmp"}
+          )
+          or
+          max by (instance, device_name, job, snmp_group) (
+            100 * snmp_MemoryUsed{job="alloy-snmp"} / (snmp_MemoryUsed{job="alloy-snmp"} + snmp_MemoryFree{job="alloy-snmp"})
+            or
+            100 * (snmp_MemoryTotal{job="alloy-snmp"} - snmp_MemoryFree{job="alloy-snmp"}) / snmp_MemoryTotal{job="alloy-snmp"}
+            or
+            100 * snmp_MemoryUsed{job="alloy-snmp"} / snmp_MemoryTotal{job="alloy-snmp"}
+          )
+
+      - record: if:snmp_ifHCInOctets:rate5m
+        expr: |
+          (
+            rate(snmp_ifHCInOctets{job="alloy-snmp"}[5m])
+            * on(device_name, job, snmp_group, ifIndex, if_interface_name) group_left(if_Alias)
+              max by (device_name, job, snmp_group, ifIndex, if_interface_name, if_Alias) (snmp_ifAdminStatus{job="alloy-snmp",if_Alias!=""})
+          )
+          or
+          (
+            rate(snmp_ifHCInOctets{job="alloy-snmp"}[5m])
+            unless on(device_name, job, snmp_group, ifIndex, if_interface_name)
+              (rate(snmp_ifHCInOctets{job="alloy-snmp"}[5m]) * on(device_name, job, snmp_group, ifIndex, if_interface_name) group_left() max by (device_name, job, snmp_group, ifIndex, if_interface_name) (snmp_ifAdminStatus{job="alloy-snmp",if_Alias!=""}))
+          )
+
+      - record: if:snmp_ifHCOutOctets:rate5m
+        expr: |
+          (
+            rate(snmp_ifHCOutOctets{job="alloy-snmp"}[5m])
+            * on(device_name, job, snmp_group, ifIndex, if_interface_name) group_left(if_Alias)
+              max by (device_name, job, snmp_group, ifIndex, if_interface_name, if_Alias) (snmp_ifAdminStatus{job="alloy-snmp",if_Alias!=""})
+          )
+          or
+          (
+            rate(snmp_ifHCOutOctets{job="alloy-snmp"}[5m])
+            unless on(device_name, job, snmp_group, ifIndex, if_interface_name)
+              (rate(snmp_ifHCOutOctets{job="alloy-snmp"}[5m]) * on(device_name, job, snmp_group, ifIndex, if_interface_name) group_left() max by (device_name, job, snmp_group, ifIndex, if_interface_name) (snmp_ifAdminStatus{job="alloy-snmp",if_Alias!=""}))
+          )
+
+      - record: if:snmp_IfInUtilization:percent
+        expr: |
+          100 * rate(snmp_ifHCInOctets{job="alloy-snmp"}[5m]) * 8
+            / on(instance, device_name, job, snmp_group, ifIndex, if_interface_name) group_left()
+              ((snmp_ifHighSpeed{job="alloy-snmp"} > 0) * 1e6)
+
+      - record: if:snmp_IfOutUtilization:percent
+        expr: |
+          100 * rate(snmp_ifHCOutOctets{job="alloy-snmp"}[5m]) * 8
+            / on(instance, device_name, job, snmp_group, ifIndex, if_interface_name) group_left()
+              ((snmp_ifHighSpeed{job="alloy-snmp"} > 0) * 1e6)
+
+  - name: alloy-snmp.composites.cold
+    interval: 5m
+    rules:
+      - record: if:snmp_ifInErrors:rate5m
+        expr: |
+          rate(snmp_ifInErrors{job="alloy-snmp"}[15m])
+
+      - record: if:snmp_ifOutErrors:rate5m
+        expr: |
+          rate(snmp_ifOutErrors{job="alloy-snmp"}[15m])
+
+      - record: if:snmp_ifInErrorPercent:percent
+        expr: |
+          (
+            100 * rate(snmp_ifInErrors{job="alloy-snmp"}[15m])
+              / on(device_name, job, snmp_group, ifIndex, if_interface_name) group_left()
+                rate(snmp_ifHCInUcastPkts{job="alloy-snmp"}[15m])
+          )
+          and on(device_name, job, snmp_group, ifIndex, if_interface_name)
+            (rate(snmp_ifHCInUcastPkts{job="alloy-snmp"}[15m]) > 0)
+
+      - record: if:snmp_ifOutErrorPercent:percent
+        expr: |
+          (
+            100 * rate(snmp_ifOutErrors{job="alloy-snmp"}[15m])
+              / on(device_name, job, snmp_group, ifIndex, if_interface_name) group_left()
+                rate(snmp_ifHCOutUcastPkts{job="alloy-snmp"}[15m])
+          )
+          and on(device_name, job, snmp_group, ifIndex, if_interface_name)
+            (rate(snmp_ifHCOutUcastPkts{job="alloy-snmp"}[15m]) > 0)

@@ -1,6 +1,6 @@
 # One Alloy: SNMP discover+poll, traps, syslog, netflow/sflow → Grafana Cloud.
-# Requires ALLOY_IMAGE with discovery.snmp + otelcol.receiver.snmptrap + netflow
-# (Mesverrum/alloy branch network-snmp until those land in grafana/alloy).
+# Requires ALLOY_IMAGE with discovery.snmp + otelcol.receiver.snmptrap + netflow.
+# Default: pull ghcr.io/mesverrum/alloy-network (docs/install-alloy.md).
 #
 # UDP 162 / 1514 / 2055 / 6344 often need host networking or cap_add NET_BIND_SERVICE
 # if you want privileged trap/syslog ports. Defaults below are unprivileged.

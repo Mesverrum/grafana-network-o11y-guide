@@ -16,6 +16,12 @@ If the list of data sources is empty, the Cloud stack is new or your user cannot
 
 ## Metrics (Prometheus)
 
+Discovery catalog (Health / A1 — needs the sample self-scrape, `job="alloy"`):
+
+```promql
+sum by (group) (discovery_snmp_devices_by_group{job="alloy"})
+```
+
 Devices Alloy is polling:
 
 ```promql

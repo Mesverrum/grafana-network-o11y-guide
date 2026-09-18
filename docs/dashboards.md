@@ -13,7 +13,7 @@ In Grafana Cloud:
 3. Pick this stack’s Prometheus and Loki data sources when asked (`${datasource}` / `${loki}`)
 4. Open **Device Summary**, then **Health**. Time range **Last 1 hour**.
 
-If a panel stays empty after 5–10 minutes, [troubleshooting/bring-up.md](../troubleshooting/bring-up.md). Raw queries are optional: [grafana.md](grafana.md).
+If a panel stays empty after 5–10 minutes, [troubleshooting/bring-up.md](../troubleshooting/bring-up.md). Interface util / error % also need [recording rules](recording-rules.md). Raw queries are optional: [grafana.md](grafana.md).
 
 | Short name | Title | What it is for |
 |------------|-------|----------------|

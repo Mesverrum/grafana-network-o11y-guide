@@ -1,9 +1,17 @@
-// Copy to /etc/alloy/config.alloy and edit the lists below.
+// Copy to /etc/alloy/config.alloy and edit the CIDR / auth-name lists.
 // First-time path: no Fleet. When you enroll in Fleet Management, use
 // alloy/fleet-pipeline.alloy.sample instead (see docs/fleet.md).
+//
+// This sample lights the A0–A4 boards on the first pass:
+//   job="alloy-snmp"     hot + cold SNMP
+//   job="alloy"          discovery_snmp_* (Health)
+//   alloy-netflow        NetFlow :2055 + sFlow :6344
+//   alloy-snmptrap       UDP :11620
+//   alloy-syslog         UDP :1514
+// Topology walks stay off Cloud (do not scrape snmp_tier=topology here).
 
 local.file "snmp_auths" {
-  filename = "/etc/alloy/auths.yml"
+  filename  = "/etc/alloy/auths.yml"
   is_secret = true
 }
 
@@ -11,22 +19,20 @@ discovery.snmp "fabric" {
   refresh_interval = "5m"
   state_path       = "/var/lib/alloy/data/snmp-discovery.state.json"
   auths            = local.file.snmp_auths.content
+  tiers            = ["hot", "cold"]
 
   group {
     name  = "hq"
-    cidrs = ["10.0.0.0/24", "10.0.1.0/24"]
-    auths = ["public_v2", "campus_v2"]
+    cidrs = ["10.0.0.0/24", "10.0.1.0/24"]           // one box: "192.168.1.1/32"
+    auths = ["public_v2", "campus_v2"]                // names from auths.yml
   }
 
   group {
     name  = "branch"
-    cidrs = ["10.10.0.0/24", "192.168.10.1/32"]
+    cidrs = ["10.10.0.0/24"]
     auths = ["public_v2", "campus_v2"]
   }
 }
-
-// Identity for traps / syslog / flow sampler = the SNMP target list.
-// Extra aliases for non-SNMP hosts are optional (see docs/architecture.md).
 
 discovery.relabel "snmp_hot" {
   targets = discovery.snmp.fabric.targets
@@ -56,6 +62,12 @@ prometheus.exporter.snmp "fabric_hot" {
 prometheus.exporter.snmp "fabric_cold" {
   auths   = local.file.snmp_auths.content
   targets = discovery.relabel.snmp_cold.output
+}
+
+otelcol.receiver.prometheus "default" {
+  output {
+    metrics = [otelcol.processor.batch.gc.input]
+  }
 }
 
 prometheus.relabel "alloy_snmp_hot" {
@@ -100,10 +112,28 @@ prometheus.scrape "alloy_snmp_cold" {
   forward_to      = [prometheus.relabel.alloy_snmp_cold.receiver]
 }
 
-otelcol.receiver.prometheus "default" {
-  output {
-    metrics = [otelcol.processor.batch.gc.input]
+// Health (A1): discovery.snmp metrics as job="alloy".
+prometheus.exporter.self "alloy" { }
+
+prometheus.relabel "alloy_self" {
+  forward_to = [otelcol.receiver.prometheus.default.receiver]
+
+  rule {
+    target_label = "job"
+    replacement  = "alloy"
   }
+
+  rule {
+    source_labels = ["__name__"]
+    regex         = "discovery_snmp_.*|alloy_build_info|up"
+    action        = "keep"
+  }
+}
+
+prometheus.scrape "alloy_self" {
+  targets         = prometheus.exporter.self.alloy.targets
+  scrape_interval = "30s"
+  forward_to      = [prometheus.relabel.alloy_self.receiver]
 }
 
 otelcol.receiver.snmptrap "lab" {
@@ -153,6 +183,14 @@ otelcol.receiver.syslog "lab" {
 
 otelcol.processor.transform "syslog_logs" {
   error_mode = "ignore"
+
+  log_statements {
+    context = "log"
+    statements = [
+      `set(attributes["severity"], severity_text) where severity_text != ""`,
+      `set(attributes["job"], "syslog")`,
+    ]
+  }
 
   log_statements {
     context = "resource"
@@ -231,7 +269,15 @@ otelcol.connector.signaltometrics "netflow" {
       key = "network.local.address"
     }
     attributes {
+      key      = "network.local.port"
+      optional = true
+    }
+    attributes {
       key = "network.peer.address"
+    }
+    attributes {
+      key      = "network.peer.port"
+      optional = true
     }
     attributes {
       key = "network.transport"
@@ -241,6 +287,18 @@ otelcol.connector.signaltometrics "netflow" {
     }
     attributes {
       key      = "device_name"
+      optional = true
+    }
+    attributes {
+      key      = "snmp_group"
+      optional = true
+    }
+    attributes {
+      key      = "src_host"
+      optional = true
+    }
+    attributes {
+      key      = "dst_host"
       optional = true
     }
     sum {

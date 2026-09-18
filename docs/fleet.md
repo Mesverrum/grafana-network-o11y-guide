@@ -23,10 +23,10 @@ Keep it small — things you would type in an NMS “add site” form:
 - Group name (e.g. `hq`)
 - CIDRs to scan — a list, e.g. `["10.0.0.0/24", "10.0.1.0/24"]`
 - Auth **names** — a list, e.g. `["public_v2", "campus_v2"]`, not the community strings
-- Whether to run hot / cold / topology polls
+- Whether to run hot / cold polls (`tiers = ["hot", "cold"]` in the sample)
 - Trap / syslog / flow listen ports
 
-Sample you can paste and then edit: [`alloy/fleet-pipeline.alloy.sample`](../alloy/fleet-pipeline.alloy.sample).
+Sample you can paste and then edit: [`alloy/fleet-pipeline.alloy.sample`](../alloy/fleet-pipeline.alloy.sample). It matches the local file: SNMP hot+cold, Alloy self-scrape (Health), traps `:11620`, syslog `:1514`, NetFlow `:2055`, sFlow `:6344`.
 
 **Fleet is not a secret store.** If you are about to type `community:`, `password:`, `priv_password:`, or `glc_`, stop and put it on the poller instead ([secrets.md](secrets.md)).
 

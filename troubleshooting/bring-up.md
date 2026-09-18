@@ -36,6 +36,12 @@ You are logged into a **different** Grafana Cloud stack than `GC_OTLP_*` on the 
 
 The query on that panel may be wrong for this path. Optional: paste the panel query in Explore ([grafana.md](../docs/grafana.md)). Device inventory is `snmp_CPU` — there is no single `DeviceMetrics` metric.
 
+Health (A1) discovery counts need the sample’s **self-scrape** (`job="alloy"`, `discovery_snmp_*`). If you wrote your own River and omitted `prometheus.exporter.self`, those panels stay at zero while Device Summary still works.
+
+Device Details **util % / error %** need [recording rules](../docs/recording-rules.md). Raw octets still work without them.
+
+Flow Summary stays empty until a device exports NetFlow to `:2055` or sFlow to `:6344` (the sample listens on both).
+
 ### 7. Traps or syslog missing
 
 On the device, the destination IP/port is still the old NMS. Sample ports: traps `11620`, syslog `1514`. If both a local config file *and* Fleet try to bind the same UDP port, one side loses — pick one listener.

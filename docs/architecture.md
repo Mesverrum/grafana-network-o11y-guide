@@ -33,7 +33,7 @@ flowchart TB
 
 ## What must be installed
 
-The official Linux package gives you the service. This guide’s discovery / trap / flow config needs the **network** build on top of that. Follow [install-alloy.md](install-alloy.md) — you do not need to read GitHub issues to finish install.
+The official Linux package gives you the service. This guide’s discovery / trap / flow config needs the **network** image on top of that. Follow [install-alloy.md](install-alloy.md) (`docker pull`, no compile).
 
 The large SNMP “which OIDs for which vendor” library is **inside that build** (`/etc/alloy/snmp-network.yml`). Do not paste it into Fleet.
 
@@ -65,6 +65,8 @@ Import the boards in [dashboards.md](dashboards.md). If you need the raw names:
 | Flow | Prometheus: `alloy_network_io_by_flow_bytes{integration="alloy-netflow"}` — wrap in `rate(…[5m])` |
 | Traps | Loki: `{service_name="alloy-snmptrap"}` |
 | Syslog | Loki: `{service_name="alloy-syslog"}` |
+
+The sample River self-scrapes Alloy so Health can show `discovery_snmp_*{job="alloy"}`. Flow boards need a device exporting to `:2055` / `:6344`. Interface util / error % need [recording rules](recording-rules.md).
 
 Paste-ready examples: [grafana.md](grafana.md). Why `rate()` and not “divide by 60”: these are normal increasing counters, not 60-second delta gauges.
 

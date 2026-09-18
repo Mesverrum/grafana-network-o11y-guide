@@ -10,34 +10,36 @@ This guide’s config uses three pieces that are not in that package yet:
 - Receive SNMP traps
 - Receive NetFlow / IPFIX / sFlow
 
-Those exist on GitHub as [Mesverrum/alloy](https://github.com/Mesverrum/alloy), branch **`network-snmp`**. You compile that branch with Docker, then replace `/usr/bin/alloy` so `systemctl` runs the new program. You do **not** need to install the Go language.
+Those ship as a **prebuilt image**: [`ghcr.io/mesverrum/alloy-network`](https://github.com/Mesverrum/grafana-network-o11y-guide/pkgs/container/alloy-network). You pull it, copy three files onto the poller, and `systemctl` keeps working. You do **not** need Go.
 
-Use any machine with Docker for the compile (poller or a laptop). Copy the files to the poller if you built elsewhere (`scp`).
+Source (if you want to read or rebuild it): [Mesverrum/alloy](https://github.com/Mesverrum/alloy) branch **`network-snmp`**.
 
-## 1. Download the source
+## 1. Official Alloy service (file layout)
 
-```
-git clone --branch network-snmp --single-branch https://github.com/Mesverrum/alloy.git
-cd alloy
-```
-
-Check the branch:
+Debian / Ubuntu — skip this if `systemctl status alloy` already works:
 
 ```
-git branch --show-current
+sudo mkdir -p /etc/apt/keyrings
+sudo wget -O /etc/apt/keyrings/grafana.asc https://apt.grafana.com/gpg-full.key
+sudo chmod 644 /etc/apt/keyrings/grafana.asc
+echo "deb [signed-by=/etc/apt/keyrings/grafana.asc] https://apt.grafana.com stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo apt-get update && sudo apt-get install alloy
 ```
 
-It must print `network-snmp`. If you cloned without `--branch`, the default is stock Alloy and the next build will not help.
+Other distros: [Install Alloy on Linux](https://grafana.com/docs/alloy/latest/set-up/install/linux/).
 
-## 2. Compile (Docker)
+## 2. Pull the network image (no compile)
 
-First run downloads several GB and often takes **15–40 minutes**. Leave it running.
+On any machine with Docker (the poller or a laptop):
 
 ```
-docker build -f Dockerfile.network-src -t alloy-network:dev .
+export ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0
+docker pull "$ALLOY_IMAGE"
 ```
 
-When it returns to a prompt with no error, you have a local Docker image named `alloy-network:dev`. That image is also what the optional laptop Compose file expects (`ALLOY_IMAGE=alloy-network:dev`).
+If the pull asks you to log in, the package is still private — use the [compile fallback](#fallback-compile-from-source) or wait for the public package. Image tags match [guide releases](https://github.com/Mesverrum/grafana-network-o11y-guide/releases).
+
+Compose users: set `ALLOY_IMAGE` in `.env` to that same tag and skip the copy steps below (`docker compose up -d`).
 
 ## 3. Install the program on the poller
 
@@ -46,7 +48,7 @@ The service already points at `/usr/bin/alloy` and `/etc/alloy/`. Replace the pr
 ```
 sudo cp -a /usr/bin/alloy /usr/bin/alloy.dist
 
-docker create --name alloy-extract alloy-network:dev
+docker create --name alloy-extract "$ALLOY_IMAGE"
 sudo docker cp alloy-extract:/bin/alloy /usr/bin/alloy
 sudo docker cp alloy-extract:/usr/bin/snmp-discovery /usr/bin/snmp-discovery
 sudo docker cp alloy-extract:/etc/alloy/snmp-network.yml /etc/alloy/snmp-network.yml
@@ -57,12 +59,12 @@ docker rm alloy-extract
 If the two `.yml` copies fail, list what the image actually contains:
 
 ```
-docker run --rm --entrypoint ls alloy-network:dev /etc/alloy
+docker run --rm --entrypoint ls "$ALLOY_IMAGE" /etc/alloy
 ```
 
 Copy every `*.yml` you see **except** `config.alloy`.
 
-Built on a laptop? `scp` `alloy`, `snmp-discovery`, and those two YAML files to the poller, then `sudo install -m 755 alloy /usr/bin/alloy` and the same for `snmp-discovery`.
+Built or pulled on a laptop? `scp` `alloy`, `snmp-discovery`, and those two YAML files to the poller, then `sudo install -m 755 alloy /usr/bin/alloy` and the same for `snmp-discovery`.
 
 ## 4. Allow unfinished (but needed) components
 
@@ -96,9 +98,22 @@ On the poller, open http://127.0.0.1:12345 — Alloy’s **local** status page (
 
 Then go back to the [README quickstart](../README.md#quickstart) for `auths.yml`, config, and dashboard import.
 
+## Fallback: compile from source
+
+Only if you cannot pull the image. First run downloads several GB and often takes **15–40 minutes**.
+
+```
+git clone --branch network-snmp --single-branch https://github.com/Mesverrum/alloy.git
+cd alloy
+docker build -f Dockerfile.network-src -t alloy-network:dev .
+export ALLOY_IMAGE=alloy-network:dev
+```
+
+Then continue from [step 3](#3-install-the-program-on-the-poller).
+
 ## Optional: Docker Compose
 
-Same network image, as a container instead of systemd. After step 2, in **this** repo (the guide), not inside the `alloy` clone:
+Same image, as a container instead of systemd. Docker’s default bridge often cannot reach a management VLAN. On Linux, set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
 
 ```
 cd /path/to/grafana-network-o11y-guide
@@ -106,22 +121,20 @@ cp .env.sample .env
 cp alloy/config.alloy.sample alloy/config.alloy
 ```
 
-Write communities / v3 into `alloy/auths.yml` (`snmp-discovery init --out-auths alloy/auths.yml`, or copy `alloy/auths.example.yml`). Edit `.env` (Cloud URL / account / token) and the `cidrs` / `auths` lists in `alloy/config.alloy`. Then:
+Set `ALLOY_IMAGE=ghcr.io/mesverrum/alloy-network:v0.1.0` in `.env`. Write communities / v3 into `alloy/auths.yml` (`snmp-discovery init --out-auths alloy/auths.yml`, or copy `alloy/auths.example.yml`). Edit the `cidrs` / `auths` lists in `alloy/config.alloy`. Then:
 
 ```
 docker compose up -d
 ```
 
-Docker’s default bridge often cannot reach a management VLAN. On Linux, set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
-
 ## Files that matter
 
 | Path | Who creates it |
 |------|----------------|
-| `/usr/bin/alloy` | You, from the Docker build |
-| `/usr/bin/snmp-discovery` | Same build — `snmp-discovery init` writes the first `auths.yml` ([secrets.md](secrets.md)) |
-| `/etc/alloy/snmp-network.yml` | Copied from the build (vendor OIDs) |
-| `/etc/alloy/fingerprinters.yml` | Copied from the build (`sysObjectID` → modules) |
+| `/usr/bin/alloy` | You, copied from the image |
+| `/usr/bin/snmp-discovery` | Same image — `snmp-discovery init` writes the first `auths.yml` ([secrets.md](secrets.md)) |
+| `/etc/alloy/snmp-network.yml` | Copied from the image (vendor OIDs) |
+| `/etc/alloy/fingerprinters.yml` | Copied from the image (`sysObjectID` → modules) |
 | `/etc/alloy/auths.yml` | **You** — communities / v3 |
 | `/etc/alloy/config.alloy` | **You** — from the samples in this repo |
 | `/etc/default/alloy` | Package + your `CUSTOM_ARGS` and `GC_OTLP_*` |

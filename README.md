@@ -4,7 +4,7 @@ Stand up **network observability in Grafana Cloud** with one collector on a Linu
 
 This is written for **network engineers**. You do not need a Grafana SE, and you do not need to be a software developer. If a word is new, see [docs/glossary.md](docs/glossary.md).
 
-This is **not** an official Grafana product repo. The extra SNMP / trap / flow pieces are not in the public Alloy package yet — [docs/install-alloy.md](docs/install-alloy.md) shows how to install them.
+This is **not** an official Grafana product repo. The extra SNMP / trap / flow pieces are not in the public Alloy package yet. Install the prebuilt image — [docs/install-alloy.md](docs/install-alloy.md) (`ghcr.io/mesverrum/alloy-network`). You do not need to compile.
 
 ## What you are building
 
@@ -35,7 +35,7 @@ If Alloy polls `10.1.1.5` as `core-01`, traps and flows from `10.1.1.5` get the 
 
 - A Linux host that can **ping and `snmpget`** the devices. If that fails from the host, Alloy will fail too.
 - A Grafana Cloud login and a **stack** you can open. How to copy the three push settings (URL, numeric instance ID, `glc_` token): **[docs/grafana-cloud-otlp.md](docs/grafana-cloud-otlp.md)**. You will not find these in a welcome email.
-- **Docker** on the machine that *builds* Alloy (the poller or a jump box). You copy the finished program onto the poller. You do not need to write Go.
+- **Docker** on the poller (or a laptop) to **pull** the network Alloy image. You copy three files onto the poller. You do not need to write Go or compile.
 
 ## Quickstart
 
@@ -51,7 +51,7 @@ sudo apt-get update && sudo apt-get install alloy
 
 Other distros: [Install Alloy on Linux](https://grafana.com/docs/alloy/latest/set-up/install/linux/).
 
-That package is the **service and file layout**. It cannot run this guide’s SNMP discovery / trap / flow samples yet. Next: **[docs/install-alloy.md](docs/install-alloy.md)** (clone, Docker build, replace `/usr/bin/alloy`, copy the SNMP library). Then in `/etc/default/alloy` (RHEL: `/etc/sysconfig/alloy`):
+That package is the **service and file layout**. It cannot run this guide’s SNMP discovery / trap / flow samples yet. Next: **[docs/install-alloy.md](docs/install-alloy.md)** (`docker pull ghcr.io/mesverrum/alloy-network:v0.1.0`, replace `/usr/bin/alloy`, copy the SNMP library). Then in `/etc/default/alloy` (RHEL: `/etc/sysconfig/alloy`):
 
 ```
 CUSTOM_ARGS="--stability.level=experimental"
@@ -112,11 +112,11 @@ On each device, set trap / syslog / flow export to **this host’s management IP
 
 In Grafana Cloud: left menu → **Dashboards** → **New** → **Import**. Upload each JSON file in [`dashboards/`](dashboards/) (see [docs/dashboards.md](docs/dashboards.md)). When asked, pick this stack’s Prometheus and Loki data sources.
 
-Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devices and scrapes should start filling in. Empty panels: [troubleshooting/bring-up.md](troubleshooting/bring-up.md). You do not need Explore to finish bring-up.
+Open **Device Summary** first, then **Health**. Time range **Last 1 hour**. Devices, discovery counts, and scrapes should start filling in. Interface util / error % on Device Details need [recording rules](docs/recording-rules.md). Empty panels: [troubleshooting/bring-up.md](troubleshooting/bring-up.md). You do not need Explore to finish bring-up.
 
 ## Optional: Docker Compose
 
-If you prefer containers to systemd, the same image can run under Compose. Build it first ([install-alloy.md](docs/install-alloy.md) step 2). Docker’s default bridge often **cannot** reach a campus management VLAN — on Linux set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
+If you prefer containers to systemd, the same image can run under Compose. Pull it ([install-alloy.md](docs/install-alloy.md)). Docker’s default bridge often **cannot** reach a campus management VLAN — on Linux set `network_mode: host` in `compose.yaml`, or run Compose on a host that already sits on that network.
 
 ```
 cp .env.sample .env
@@ -138,6 +138,7 @@ docker compose up -d
 - **[docs/fleet.md](docs/fleet.md)** — Fleet vs files on the poller
 - **[docs/secrets.md](docs/secrets.md)** — where communities and tokens live
 - **[docs/dashboards.md](docs/dashboards.md)** — import the A0–A4 set (this is how you confirm data)
+- **[docs/recording-rules.md](docs/recording-rules.md)** — optional Cloud rules for interface util / error %
 - **[docs/grafana.md](docs/grafana.md)** — Explore queries only if a panel stays empty
 - **[troubleshooting/bring-up.md](troubleshooting/bring-up.md)** — first-time failures
 - **[troubleshooting/snmp.md](troubleshooting/snmp.md)** — `snmpget` from the poller
