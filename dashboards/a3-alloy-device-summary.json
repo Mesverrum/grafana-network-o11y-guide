@@ -27,7 +27,7 @@
       }
     ],
     "cursorSync": "Off",
-    "description": "Fleet-level overview of Alloy SNMP devices (snmp_* / recording rules). Interface bps is if:snmp_ifHC*:rate5m * 8. Fleet tabs: Routing, Interfaces, Hardware, Resources, Events; drill links \u2192 alloy-device-details.",
+    "description": "Alloy fleet view: SNMP (`snmp_*`, job=`alloy-snmp`), recording-rule composites, Alloy-native flow and events, and topology-exporter BGP/LLDP edges. Interface counters use Prometheus rates. Device drill-down links open A4 Alloy Device Details.",
     "editable": true,
     "elements": {
       "panel-156": {
@@ -35,7 +35,7 @@
         "spec": {
           "id": 156,
           "title": "Unhealthy Pollers",
-          "description": "Devices whose Alloy SNMP hot-tier target is down.",
+          "description": "Devices where the Alloy SNMP exporter target is not up (either hot or cold tier).",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -53,10 +53,10 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "count(up{job=\"alloy-snmp\",snmp_tier=\"hot\",snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 0) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "expr": "count(up{job=\"alloy-snmp\",snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 0) OR vector(0)",
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -125,7 +125,7 @@
         "spec": {
           "id": 157,
           "title": "SNMP Collectors",
-          "description": "Alloy SNMP exporter instances (hot / cold / topology scrape jobs).",
+          "description": "Active Alloy SNMP exporter service instances (hot/cold polling tiers).",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -371,7 +371,7 @@
         "spec": {
           "id": 160,
           "title": "Memory by Device",
-          "description": "Memory % from device:snmp_MemoryUtilization:percent (Grafana-managed rule).",
+          "description": "Memory % from snmp_MemoryUsed / (snmp_MemoryUsed + snmp_MemoryFree).",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -479,7 +479,7 @@
         "spec": {
           "id": 161,
           "title": "Memory Utilization \u2014 Top 10",
-          "description": "Memory % trend from device:snmp_MemoryUtilization:percent.",
+          "description": "Memory % trend for hottest devices, from snmp_MemoryUsed / (snmp_MemoryUsed + snmp_MemoryFree).",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -930,8 +930,8 @@
         "kind": "Panel",
         "spec": {
           "id": 164,
-          "title": "BGP Established % by Device",
-          "description": "Share of BGP peers in established state per device.",
+          "title": "Observed BGP Sessions by Device",
+          "description": "Current established BGP sessions grouped by the reporting network device.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -949,11 +949,11 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "sort_desc(\n  100 * count by(device_name, snmp_group) (snmp_tBgpPeerNgConnState{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 6)\n  / count by(device_name, snmp_group) (snmp_tBgpPeerNgConnState{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"})\n)",
-                        "instant": false,
-                        "legendFormat": "{{device_name}} ({{snmp_group}})",
-                        "queryType": "range",
-                        "range": true
+                        "expr": "sort_desc(count by (src_device) (network_topology_edge_info{tester_id=\"network-lab\",discovery_proto=\"bgp\",src_device=~\"$device_name\"}))",
+                        "instant": true,
+                        "legendFormat": "{{src_device}}",
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -997,23 +997,22 @@
               },
               "fieldConfig": {
                 "defaults": {
-                  "unit": "percent",
+                  "unit": "short",
                   "min": 0,
-                  "max": 100,
                   "thresholds": {
                     "mode": "absolute",
                     "steps": [
                       {
                         "value": 0,
-                        "color": "red"
+                        "color": "green"
                       },
                       {
-                        "value": 80,
+                        "value": 50,
                         "color": "yellow"
                       },
                       {
-                        "value": 100,
-                        "color": "green"
+                        "value": 80,
+                        "color": "red"
                       }
                     ]
                   },
@@ -1038,8 +1037,8 @@
         "kind": "Panel",
         "spec": {
           "id": 165,
-          "title": "BGP Peers Established",
-          "description": "Count of established BGP sessions fleet-wide.",
+          "title": "Observed BGP Sessions",
+          "description": "Established BGP sessions reconciled by topology-exporter. A session disappears while it is down.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1057,10 +1056,11 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "count(snmp_tBgpPeerNgConnState{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 6) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "expr": "count((network_topology_edge_info{tester_id=\"network-lab\",discovery_proto=\"bgp\",src_device=~\"$device_name\"} or network_topology_edge_info{tester_id=\"network-lab\",discovery_proto=\"bgp\",dst_device=~\"$device_name\"})) OR vector(0)",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -1124,8 +1124,8 @@
         "kind": "Panel",
         "spec": {
           "id": 166,
-          "title": "BGP Peers Total",
-          "description": "All BGP peers being polled.",
+          "title": "Observed LLDP Links",
+          "description": "Current physical adjacencies reconciled by topology-exporter.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1143,10 +1143,11 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "count(snmp_tBgpPeerNgConnState{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "expr": "count((network_topology_edge_info{tester_id=\"network-lab\",discovery_proto=\"lldp\",src_device=~\"$device_name\"} or network_topology_edge_info{tester_id=\"network-lab\",discovery_proto=\"lldp\",dst_device=~\"$device_name\"})) OR vector(0)",
+                        "instant": true,
+                        "legendFormat": "__auto",
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -1207,8 +1208,8 @@
         "kind": "Panel",
         "spec": {
           "id": 167,
-          "title": "BGP Sessions Not Established",
-          "description": "Peers where tBgpPeerNgConnState is not established (6).",
+          "title": "Observed Connections",
+          "description": "Current BGP and LLDP edges. Use discovery_proto, evidence, src/dst device, ports, and AS labels to distinguish connection types.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1226,9 +1227,10 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "snmp_tBgpPeerNgConnState{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} != 6",
+                        "expr": "(network_topology_edge_info{tester_id=\"network-lab\",src_device=~\"$device_name\"} or network_topology_edge_info{tester_id=\"network-lab\",dst_device=~\"$device_name\"})",
                         "format": "table",
                         "instant": true,
+                        "legendFormat": "__auto",
                         "queryType": "instant",
                         "range": false
                       }
@@ -1253,16 +1255,14 @@
                         "device_name": 0,
                         "peer_as": 2,
                         "peer_group": 1,
-                        "snmp_group": 3,
-                        "tBgpPeerNgAddress": 4
+                        "snmp_group": 3
                       },
                       "renameByName": {
                         "Value": "Status",
                         "device_name": "Device",
                         "peer_as": "Peer AS",
                         "peer_group": "Peer Group",
-                        "snmp_group": "SNMP Group",
-                        "tBgpPeerNgAddress": "Peer Address"
+                        "snmp_group": "SNMP Group"
                       }
                     }
                   }
@@ -1293,13 +1293,7 @@
               "options": {
                 "cellHeight": "sm",
                 "enablePagination": true,
-                "showHeader": true,
-                "sortBy": [
-                  {
-                    "desc": true,
-                    "displayName": "Status"
-                  }
-                ]
+                "showHeader": true
               },
               "fieldConfig": {
                 "defaults": {
@@ -1334,53 +1328,13 @@
                 "overrides": [
                   {
                     "matcher": {
-                      "id": "byName",
-                      "options": "Status"
+                      "id": "byRegexp",
+                      "options": "^(Time|Value|__name__|job|instance|service_instance_id|tester_id)$"
                     },
                     "properties": [
                       {
-                        "id": "mappings",
-                        "value": [
-                          {
-                            "options": {
-                              "1": {
-                                "color": "red",
-                                "index": 1,
-                                "text": "Down"
-                              },
-                              "2": {
-                                "color": "green",
-                                "index": 0,
-                                "text": "Established"
-                              }
-                            },
-                            "type": "value"
-                          }
-                        ]
-                      },
-                      {
-                        "id": "custom.cellOptions",
-                        "value": {
-                          "type": "color-background"
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "matcher": {
-                      "id": "byName",
-                      "options": "Device"
-                    },
-                    "properties": [
-                      {
-                        "id": "links",
-                        "value": [
-                          {
-                            "targetBlank": true,
-                            "title": "View Device Details \u2192",
-                            "url": "/d/alloy-device-details?var-instance=${__data.fields.Device}&var-datasource=$datasource&${__url_time_range}"
-                          }
-                        ]
+                        "id": "custom.hidden",
+                        "value": true
                       }
                     ]
                   }
@@ -1394,8 +1348,8 @@
         "kind": "Panel",
         "spec": {
           "id": 168,
-          "title": "BGP Flaps (range)",
-          "description": "Peer flap counter increase over dashboard time range.",
+          "title": "Observed Topology Edges Over Time",
+          "description": "Topology-exporter edge count by protocol. Intentional lab fault injection can briefly remove an edge.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -1413,9 +1367,9 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "topk(10, sum by(device_name, snmp_group) (increase(snmp_tBgpPeerNgOperFlaps{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}[$__range])))",
+                        "expr": "count by (discovery_proto) ((network_topology_edge_info{tester_id=\"network-lab\",src_device=~\"$device_name\"} or network_topology_edge_info{tester_id=\"network-lab\",dst_device=~\"$device_name\"}))",
                         "instant": false,
-                        "legendFormat": "{{device_name}} ({{snmp_group}})",
+                        "legendFormat": "{{discovery_proto}}",
                         "queryType": "range",
                         "range": true
                       }
@@ -1537,9 +1491,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(count by(device_name) (snmp_tmnxHwOperState{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",hw_class=~\"3|8|9\"} != 2)) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -2037,7 +1991,7 @@
         "spec": {
           "id": 173,
           "title": "Collectors by Type",
-          "description": "SNMP = devices with a hot scrape; NetFlow = Alloy flow receiver; Syslog/Traps = Loki streams in the last 15m.",
+          "description": "Active Alloy collector instances grouped by type (SNMP, NetFlow, Syslog/Traps).",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -2054,7 +2008,7 @@
                         "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "count(count by(device_name) (up{job=\"alloy-snmp\",snmp_tier=\"hot\",snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}))",
+                        "expr": "count(count by(instance) (up{job=\"alloy-snmp\"}))",
                         "instant": true,
                         "legendFormat": "SNMP",
                         "queryType": "instant",
@@ -2092,14 +2046,15 @@
                   "spec": {
                     "query": {
                       "kind": "DataQuery",
-                      "group": "loki",
+                      "group": "prometheus",
                       "version": "v0",
                       "datasource": {
-                        "name": "${loki}"
+                        "name": "${datasource}"
                       },
                       "spec": {
-                        "expr": "count(count by (service_name) (count_over_time({service_name=~\"alloy-syslog|alloy-snmptrap\"}[15m])))",
+                        "expr": "count(count by (collector_id) (alloy_component_controller_running_components{controller_id=\"snmptrapd_logs.default\"}))",
                         "instant": true,
+                        "legendFormat": "Syslog/Traps",
                         "queryType": "instant",
                         "range": false
                       }
@@ -2188,9 +2143,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(snmp_ifOperStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -2271,9 +2226,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 1) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -2354,9 +2309,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(snmp_ifOperStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 1) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -2612,7 +2567,7 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "topk(20, (sum by(device_name, if_interface_name, if_Alias, snmp_group) (if:snmp_ifHCInOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (max by (device_name, ifIndex, if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"})))) + (sum by(device_name, if_interface_name, if_Alias, snmp_group) (if:snmp_ifHCOutOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (max by (device_name, ifIndex, if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"})))))",
+                        "expr": "topk(20, (sum by(device_name, if_interface_name, if_Alias, snmp_group) (if:snmp_ifHCInOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"} * 0 + 1))) + (sum by(device_name, if_interface_name, if_Alias, snmp_group) (if:snmp_ifHCOutOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"} * 0 + 1))))",
                         "format": "table",
                         "instant": true,
                         "queryType": "instant",
@@ -2778,7 +2733,7 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "sum by(device_name, if_Alias, snmp_group) (if:snmp_ifHCInOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (max by (device_name, ifIndex, if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"}))) + sum by(device_name, if_Alias, snmp_group) (if:snmp_ifHCOutOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (max by (device_name, ifIndex, if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"})))",
+                        "expr": "sum by(device_name, if_Alias, snmp_group) (if:snmp_ifHCInOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"} * 0 + 1)) + sum by(device_name, if_Alias, snmp_group) (if:snmp_ifHCOutOctets:rate5m{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} * 8 * on(device_name, ifIndex) group_left(if_Alias) (snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\",if_Alias=~\".*WAN.*\"} * 0 + 1))",
                         "instant": false,
                         "legendFormat": "{{device_name}} \u2014 {{if_Alias}} ({{snmp_group}})",
                         "queryType": "range",
@@ -2902,9 +2857,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(snmp_tmnxPhysChassisFanOperStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} != 2) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -2992,9 +2947,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(snmp_tmnxPhysChassisPMOutputStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} != 4) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -3847,7 +3802,7 @@
         "spec": {
           "id": 189,
           "title": "Active Network Alerts",
-          "description": "Firing alerts, label category=network.",
+          "description": "Firing network alert instances from the Alloy network rule group.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -3866,7 +3821,7 @@
                 "alertInstanceLabelFilter": "{category=\"network\"}",
                 "alertName": "",
                 "dashboardAlerts": false,
-                "folder": "",
+                "folder": "network-lab",
                 "groupBy": [],
                 "groupMode": "default",
                 "maxItems": 20,
@@ -5492,7 +5447,7 @@
         "spec": {
           "id": 202,
           "title": "Device Status",
-          "description": "Per-device snapshot. Polling Health is up{job=alloy-snmp,snmp_tier=hot} (not CPU linger). CPU/memory are current values. Click Device for details.",
+          "description": "Per-device snapshot: CPU, interface up/down counts, and traffic, from the Alloy SNMP metric set. Click Device to open detail view.",
           "links": [],
           "data": {
             "kind": "QueryGroup",
@@ -5534,7 +5489,7 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "min by(device_name, snmp_group) (up{job=\"alloy-snmp\",snmp_tier=\"hot\",snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"})",
+                        "expr": "min by(device_name, snmp_group) (up{job=\"alloy-snmp\",snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"})",
                         "format": "table",
                         "instant": true,
                         "legendFormat": "{{device_name}}",
@@ -5630,7 +5585,7 @@
                       },
                       "spec": {
                         "app": "grafana-assistant-app",
-                        "expr": "max by(device_name, snmp_group) (device:snmp_MemoryUtilization:percent{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"})",
+                        "expr": "max by(device_name, snmp_group) (100 * last_over_time(snmp_MemoryUsed{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}[1h])) / on(device_name, snmp_group) (max by(device_name, snmp_group) (last_over_time(snmp_MemoryUsed{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}[1h])) + max by(device_name, snmp_group) (last_over_time(snmp_MemoryFree{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}[1h])))",
                         "format": "table",
                         "instant": true,
                         "legendFormat": "{{device_name}}",
@@ -6647,10 +6602,10 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "count(count by(device_name) (snmp_device_info{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}))",
-                        "instant": false,
+                        "instant": true,
                         "legendFormat": "Total Devices",
-                        "queryType": "range",
-                        "range": true
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -6731,9 +6686,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "(count(snmp_ifOperStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 2 and on(device_name, ifIndex) snmp_ifAdminStatus{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"} == 1)) OR vector(0)",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -6817,9 +6772,9 @@
                       "spec": {
                         "app": "grafana-assistant-app",
                         "expr": "avg(max by(device_name) (snmp_CPU{snmp_group=~\"$snmp_group\",device_name=~\"$device_name\"}))",
-                        "instant": false,
-                        "queryType": "range",
-                        "range": true
+                        "instant": true,
+                        "queryType": "instant",
+                        "range": false
                       }
                     },
                     "refId": "A",
@@ -8039,7 +7994,7 @@
           {
             "kind": "TabsLayoutTab",
             "spec": {
-              "title": "Routing",
+              "title": "Connections",
               "layout": {
                 "kind": "RowsLayout",
                 "spec": {
@@ -8047,7 +8002,7 @@
                     {
                       "kind": "RowsLayoutRow",
                       "spec": {
-                        "title": "BGP Summary",
+                        "title": "Observed Topology",
                         "collapse": false,
                         "hideHeader": false,
                         "fillScreen": false,

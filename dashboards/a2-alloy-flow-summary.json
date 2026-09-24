@@ -384,7 +384,7 @@
         "spec": {
           "id": 12,
           "title": "Flow Exporters",
-          "description": "NetFlow/sFlow samplers after the Alloy catalog join (`device_name` from `flow.sampler_address`). Empty until a device exports to :2055 / :6344. Hosts you do not SNMP-poll show up as IPs.",
+          "description": "NetFlow/sFlow samplers after the Alloy catalog join (`device_name` from `flow.sampler_address`). Softflowd clients show up here; they are not SNMP-polled switches.",
           "links": [],
           "data": {
             "kind": "QueryGroup",

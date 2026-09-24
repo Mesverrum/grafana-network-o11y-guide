@@ -53,7 +53,7 @@
                   "showLineNumbers": false,
                   "showMiniMap": false
                 },
-                "content": "## Alloy network \u2192 Grafana Cloud\n\nThese dashboards read the **Alloy network addons** (SNMP + traps + syslog + flow).\n\n**What you get when it works:**\n- SNMP as curated `snmp_*` (`job=\"alloy-snmp\"`, label `snmp_group`)\n- Interface counters are Prometheus **counters** \u2014 `rate(snmp_ifHCInOctets[$__rate_interval]) * 8` or recording rule `if:snmp_ifHCInOctets:rate5m * 8`\n- Flow as `alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}` \u2014 use **`rate()` / `increase()`**\n- Traps as Loki `{service_name=\"alloy-snmptrap\"}` (JSON; group by `trap_oid`)\n- Syslog as Loki `{service_name=\"alloy-syslog\"}` (plain text; `severity` is a label)\n\n**Docs:** [architecture.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/architecture.md) \u00b7 fork [Mesverrum/alloy `network-snmp`](https://github.com/Mesverrum/alloy/tree/network-snmp) \u00b7 discovery [Mesverrum/snmp-sd](https://github.com/Mesverrum/snmp-sd)\n",
+                "content": "## Alloy network \u2192 Grafana Cloud\n\nThese dashboards read the **Alloy network addons** (SNMP + traps + syslog + flow).\n\n**What you get when it works:**\n- SNMP as curated `snmp_*` (`job=\"alloy-snmp\"`, label `snmp_group`)\n- Interface counters are Prometheus **counters** \u2014 `rate(snmp_ifHCInOctets[$__rate_interval]) * 8` or recording rule `if:snmp_ifHCInOctets:rate5m * 8`\n- Flow as `alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}` \u2014 use **`rate()` / `increase()`**\n- Traps as Loki `{service_name=\"alloy-snmptrap\"}` (JSON; group by `trap_oid`)\n- Syslog as Loki `{service_name=\"alloy-syslog\"}` (plain text; `severity` is a label)\n\n**Docs:** [alloy-network-fork.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/architecture.md) \u00b7 fork [Mesverrum/alloy `network-snmp`](https://github.com/Mesverrum/alloy/tree/network-snmp) \u00b7 discovery [Mesverrum/snmp-sd](https://github.com/Mesverrum/snmp-sd)\n",
                 "mode": "markdown"
               },
               "fieldConfig": {
@@ -90,7 +90,7 @@
                   "showLineNumbers": false,
                   "showMiniMap": false
                 },
-                "content": "## End-to-end data path\n\n```\nYour devices  \u2192  Alloy on the poller  \u2192  Grafana Cloud\nSNMP :161          discovery.snmp + prometheus.exporter.snmp\n                   hot 60s / cold 5m\nTraps :11620       otelcol.receiver.snmptrap\nSyslog :1514       otelcol.receiver.syslog (protocol=none)\nNetFlow :2055      otelcol.receiver.netflow \u2192 signaltometrics\nsFlow :6344\n                   OTLP HTTPS\n```\n\nSample listen ports are unprivileged (`:11620` / `:1514`). Change the config if you own `:1620` / `:514`.\n\n**Identity:** `device_name` from the SNMP catalog. Group label is **`snmp_group`** (the group name you typed).\n",
+                "content": "## End-to-end data path\n\n```\nNetwork devices Alloy (hostNetwork)\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nSNMP :161 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u25ba prometheus.exporter.snmp\n discovery.snmp (snmp-sd fingerprinters)\n hot 60s / cold 5m\nTraps :1620 otelcol.receiver.snmptrap\nSyslog :1514 otelcol.receiver.syslog (protocol=none)\nNetFlow :2055 / sFlow :6344 otelcol.receiver.netflow \u2192 signaltometrics\n Alloy OTLP HTTP \u2500\u2500\u25ba Grafana Cloud\n```\n\nThis lab's Alloy also listens on `:11620` / `:1515` when another collector already owns `:1620` / `:1514`.\n\n**Identity:** `device_name` from the SNMP catalog. Group label is **`snmp_group`** (hq / branch1 / branch2).\n",
                 "mode": "markdown"
               },
               "fieldConfig": {
@@ -105,7 +105,7 @@
         "kind": "Panel",
         "spec": {
           "id": 3,
-          "title": "Listen ports",
+          "title": "Docker Compose services",
           "description": "",
           "links": [],
           "data": {
@@ -127,7 +127,7 @@
                   "showLineNumbers": false,
                   "showMiniMap": false
                 },
-                "content": "## Collectors (sample listen ports)\n\n| Signal | Component | Sample listen | How to query |\n|---|---|---|---|\n| SNMP | `prometheus.exporter.snmp` + `discovery.snmp` | scrape :161 | `snmp_CPU{job=\"alloy-snmp\"}` |\n| Traps | `otelcol.receiver.snmptrap` | `:11620` | `{service_name=\"alloy-snmptrap\"}` |\n| Syslog | `otelcol.receiver.syslog` | `:1514` | `{service_name=\"alloy-syslog\"}` |\n| NetFlow / sFlow | `otelcol.receiver.netflow` | `:2055` / `:6344` | `rate(alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}[5m])` |\n\nComposites: Grafana-managed recording rules `device:snmp_MemoryUtilization:percent`, `if:snmp_ifHCInOctets:rate5m` (octets/s \u2014 multiply by 8 for bps). Import: [recording-rules.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/recording-rules.md).\n",
+                "content": "## Collectors (Alloy path)\n\n| Signal | Component | Parallel listen | How to query |\n|---|---|---|---|\n| SNMP | `prometheus.exporter.snmp` + `discovery.snmp` | scrape :161 | `snmp_CPU{job=\"alloy-snmp\"}` |\n| Traps | `otelcol.receiver.snmptrap` | `:11620` | `{service_name=\"alloy-snmptrap\"}` |\n| Syslog | `otelcol.receiver.syslog` | `:1515` | `{service_name=\"alloy-syslog\"}` |\n| NetFlow / sFlow | `otelcol.receiver.netflow` | `:2055` / `:6344` | `rate(alloy_network_io_by_flow_bytes{integration=\"alloy-netflow\"}[5m])` |\n\nComposites: Grafana-managed recording rules `device:snmp_MemoryUtilization:percent`, `if:snmp_ifHCInOctets:rate5m` (octets/s \u2014 multiply by 8 for bps).\n",
                 "mode": "markdown"
               },
               "fieldConfig": {
@@ -275,7 +275,7 @@
                   "showLineNumbers": false,
                   "showMiniMap": false
                 },
-                "content": "## Site rollout checklist\n\n1. Alloy is scraping SNMP (`up{job=\"alloy-snmp\",snmp_tier=\"hot\"}` or `snmp_CPU`)\n2. Point traps at this poller `:11620` (change the sample if you use `:1620`)\n3. Point syslog at this poller `:1514`\n4. Point NetFlow / sFlow at `:2055` / `:6344` \u2014 Flow stays empty until you do\n5. `count by (device_name) (snmp_CPU{job=\"alloy-snmp\"})` matches inventory\n6. Import recording rules, then `if:snmp_ifHCInOctets:rate5m` (1\u20135m)\n",
+                "content": "## Site rollout checklist\n\n1. Alloy is scraping SNMP (`up{job=\"alloy-snmp\",snmp_tier=\"hot\"}`)\n2. Traps reach Alloy (`:1620`, or `:11620` if that port is already taken)\n3. Syslog reaches Alloy (`:1514`, or `:1515` alias)\n4. Softflowd / sFlow exporters point at Alloy `:2055` / `:6344`\n5. Explore: `count by (device_name) (snmp_CPU{job=\"alloy-snmp\"})` matches inventory\n6. Recording rules: `if:snmp_ifHCInOctets:rate5m` (may take ~1\u20135m after provision)\n",
                 "mode": "markdown"
               },
               "fieldConfig": {
@@ -349,7 +349,7 @@
                   "showLineNumbers": false,
                   "showMiniMap": false
                 },
-                "content": "## If panels are empty\n\n- First pass is SNMP. Flow / trap / syslog boards stay empty until a device exports.\n- Device dropdown + `$__all`: pick a concrete `snmp_group`. `allValue` should be `.*`.\n- Util / error / memory % need recording rules. Fallback: `rate(snmp_ifHCInOctets[$__rate_interval])*8`.\n- Health discovery counts need the sample self-scrape (`job=\"alloy\"`).\n- Confirm you are on the same Grafana Cloud stack as `GC_OTLP_*`.\n\n**References:** [architecture.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/architecture.md) \u00b7 [Mesverrum/alloy network-snmp](https://github.com/Mesverrum/alloy/tree/network-snmp) \u00b7 [snmp-sd](https://github.com/Mesverrum/snmp-sd)\n",
+                "content": "## If panels are empty\n\n- Device dropdown + `$__all`: pick `snmp_group=hq` (or any concrete group). `allValue` should be `.*`.\n- Wrong metric family: this folder is `snmp_*` / `alloy_*`.\n- Interface bps still empty after ~2m: recording rules `if:snmp_ifHCInOctets:rate5m` evaluate every 60s; fallback is `rate(snmp_ifHCInOctets[$__rate_interval])*8`.\n- Health queue-style panels are Alloy scrape / component metrics.\n\n**References:** [docs/alloy-network-fork.md](https://github.com/Mesverrum/grafana-network-o11y-guide/blob/main/docs/architecture.md) \u00b7 [Mesverrum/alloy network-snmp](https://github.com/Mesverrum/alloy/tree/network-snmp) \u00b7 [snmp-sd](https://github.com/Mesverrum/snmp-sd)\n",
                 "mode": "markdown"
               },
               "fieldConfig": {
